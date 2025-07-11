@@ -1,582 +1,495 @@
 import React from 'react';
-import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { 
+  Alert, 
+  Modal, 
+  ScrollView, 
+  StyleSheet, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  View,
+  ActivityIndicator 
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { GlobalStyles, Colors, TexturedBackgroundStyles } from './GlobalStyles';
+
+const PATIENTS_STORAGE_KEY = '@patients_data';
+
+// Textured Background Component
+const TexturedBackground = ({ children }) => (
+  <View style={[GlobalStyles.container, TexturedBackgroundStyles.container]}>
+    {/* Base background */}
+    <View style={styles.backgroundBase} />
+    
+    {/* Subtle texture overlays */}
+    <View style={styles.textureLayer1} />
+    <View style={styles.textureLayer2} />
+    
+    {/* Content */}
+    <View style={styles.contentContainer}>
+      {children}
+    </View>
+  </View>
+);
 
 function PatientListScreen({ navigation }) {
-  const [patients, setPatients] = React.useState([
-    { 
-      id: 1, 
-      name: 'John Doe', 
-      age: 35, 
-      phone: '011-123-4567',
-      address: '123 Main Street, Johannesburg',
-      lastVisit: '2025-07-05',
-      prescriptions: [
-        { date: '2025-07-05', prescription: 'Paracetamol 500mg - Take 1 tablet every 6 hours' },
-        { date: '2025-06-20', prescription: 'Ibuprofen 400mg - Take 1 tablet when needed' }
-      ]
-    },
-    { 
-      id: 2, 
-      name: 'Jane Smith', 
-      age: 28, 
-      phone: '011-987-6543',
-      address: '456 Oak Avenue, Boksburg',
-      lastVisit: '2025-07-08',
-      prescriptions: [
-        { date: '2025-07-08', prescription: 'Cough syrup 10ml - Take 3 times daily' }
-      ]
-    },
-    { 
-      id: 3, 
-      name: 'Mike Johnson', 
-      age: 42, 
-      phone: '011-555-0123',
-      address: '789 Pine Road, Benoni',
-      lastVisit: '2025-07-01',
-      prescriptions: [
-        { date: '2025-07-01', prescription: 'Antihistamine 10mg - Take 1 tablet daily' },
-        { date: '2025-06-15', prescription: 'Throat lozenges - Suck 1 every 2-3 hours' }
-      ]
-    },
-  ]);
-
+  const [patients, setPatients] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
   const [modalVisible, setModalVisible] = React.useState(false);
   const [editModalVisible, setEditModalVisible] = React.useState(false);
-  const [historyModalVisible, setHistoryModalVisible] = React.useState(false);
   const [selectedPatient, setSelectedPatient] = React.useState(null);
   const [searchText, setSearchText] = React.useState('');
   
   // New patient form fields
   const [newPatientName, setNewPatientName] = React.useState('');
-  const [newPatientAge, setNewPatientAge] = React.useState('');
-  const [newPatientPhone, setNewPatientPhone] = React.useState('');
-  const [newPatientAddress, setNewPatientAddress] = React.useState('');
+  const [newPatientSurname, setNewPatientSurname] = React.useState('');
 
   // Edit patient form fields
   const [editPatientName, setEditPatientName] = React.useState('');
-  const [editPatientAge, setEditPatientAge] = React.useState('');
-  const [editPatientPhone, setEditPatientPhone] = React.useState('');
-  const [editPatientAddress, setEditPatientAddress] = React.useState('');
+  const [editPatientSurname, setEditPatientSurname] = React.useState('');
+
+  // Load patients from AsyncStorage on component mount
+  React.useEffect(() => {
+    loadPatients();
+  }, []);
+
+  const loadPatients = async () => {
+    try {
+      setLoading(true);
+      const storedPatients = await AsyncStorage.getItem(PATIENTS_STORAGE_KEY);
+      if (storedPatients) {
+        setPatients(JSON.parse(storedPatients));
+      } else {
+        // Initialize with sample data if no data exists
+        const samplePatients = [
+          { 
+            id: 1, 
+            name: 'John',
+            surname: 'Doe',
+            prescriptions: []
+          },
+          { 
+            id: 2, 
+            name: 'Jane',
+            surname: 'Smith',
+            prescriptions: []
+          },
+          { 
+            id: 3, 
+            name: 'Mike',
+            surname: 'Johnson',
+            prescriptions: []
+          },
+        ];
+        setPatients(samplePatients);
+        await savePatients(samplePatients);
+      }
+    } catch (error) {
+      console.error('Error loading patients:', error);
+      Alert.alert('Error', 'Failed to load patient data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const savePatients = async (patientsToSave) => {
+    try {
+      await AsyncStorage.setItem(PATIENTS_STORAGE_KEY, JSON.stringify(patientsToSave));
+    } catch (error) {
+      console.error('Error saving patients:', error);
+      Alert.alert('Error', 'Failed to save patient data');
+    }
+  };
 
   const filteredPatients = patients.filter(patient =>
     patient.name.toLowerCase().includes(searchText.toLowerCase()) ||
-    patient.phone.includes(searchText)
+    patient.surname.toLowerCase().includes(searchText.toLowerCase())
   );
-
-  const selectPatient = (patient) => {
-    Alert.alert(
-      'Patient Options',
-      `What would you like to do for ${patient.name}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Create Script', 
-          onPress: () => {
-            navigation.navigate('CreateScript', { selectedPatient: patient });
-          }
-        },
-        { 
-          text: 'View History', 
-          onPress: () => {
-            setSelectedPatient(patient);
-            setHistoryModalVisible(true);
-          }
-        }
-      ]
-    );
-  };
 
   const editPatient = (patient) => {
     setSelectedPatient(patient);
     setEditPatientName(patient.name);
-    setEditPatientAge(patient.age.toString());
-    setEditPatientPhone(patient.phone);
-    setEditPatientAddress(patient.address);
+    setEditPatientSurname(patient.surname);
     setEditModalVisible(true);
   };
 
   const deletePatient = (patientId) => {
     Alert.alert(
       'Delete Patient',
-      'Are you sure you want to delete this patient?',
+      'Are you sure you want to delete this patient? This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Delete', 
           style: 'destructive',
-          onPress: () => {
-            setPatients(patients.filter(patient => patient.id !== patientId));
+          onPress: async () => {
+            const updatedPatients = patients.filter(patient => patient.id !== patientId);
+            setPatients(updatedPatients);
+            await savePatients(updatedPatients);
+            Alert.alert('Success', 'Patient deleted successfully');
           }
         }
       ]
     );
   };
 
-  const addNewPatient = () => {
-    if (newPatientName.trim() && newPatientAge.trim()) {
+  const addNewPatient = async () => {
+    if (newPatientName.trim() && newPatientSurname.trim()) {
       const newPatient = {
         id: Date.now(),
         name: newPatientName.trim(),
-        age: parseInt(newPatientAge),
-        phone: newPatientPhone.trim(),
-        address: newPatientAddress.trim(),
-        lastVisit: new Date().toISOString().split('T')[0],
+        surname: newPatientSurname.trim(),
         prescriptions: []
       };
-      setPatients([...patients, newPatient]);
+      const updatedPatients = [...patients, newPatient];
+      setPatients(updatedPatients);
+      await savePatients(updatedPatients);
       clearNewPatientForm();
       setModalVisible(false);
       Alert.alert('Success', 'New patient added successfully!');
     } else {
-      Alert.alert('Error', 'Please fill in name and age fields.');
+      Alert.alert('Error', 'Please fill in both name and surname fields.');
     }
   };
 
-  const updatePatient = () => {
-    if (editPatientName.trim() && editPatientAge.trim()) {
+  const updatePatient = async () => {
+    if (editPatientName.trim() && editPatientSurname.trim()) {
       const updatedPatients = patients.map(patient => 
         patient.id === selectedPatient.id 
           ? {
               ...patient,
               name: editPatientName.trim(),
-              age: parseInt(editPatientAge),
-              phone: editPatientPhone.trim(),
-              address: editPatientAddress.trim()
+              surname: editPatientSurname.trim()
             }
           : patient
       );
       setPatients(updatedPatients);
+      await savePatients(updatedPatients);
       setEditModalVisible(false);
       setSelectedPatient(null);
       Alert.alert('Success', 'Patient updated successfully!');
     } else {
-      Alert.alert('Error', 'Please fill in name and age fields.');
+      Alert.alert('Error', 'Please fill in both name and surname fields.');
     }
   };
 
   const clearNewPatientForm = () => {
     setNewPatientName('');
-    setNewPatientAge('');
-    setNewPatientPhone('');
-    setNewPatientAddress('');
+    setNewPatientSurname('');
   };
 
+  if (loading) {
+    return (
+      <TexturedBackground>
+        <View style={GlobalStyles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primaryBlue} />
+          <Text style={GlobalStyles.loadingText}>Loading patients...</Text>
+        </View>
+      </TexturedBackground>
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.pageTitle}>Patient List</Text>
-      
-      {/* Search Bar */}
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Search by name or phone..."
-        value={searchText}
-        onChangeText={setSearchText}
-      />
+    <TexturedBackground>
+      <View style={GlobalStyles.padding}>
+        <Text style={GlobalStyles.pageTitle}>Patient Management</Text>
+        
+        {/* Search Bar */}
+        <TextInput
+          style={GlobalStyles.searchInput}
+          placeholder="Search by name or surname..."
+          value={searchText}
+          onChangeText={setSearchText}
+          placeholderTextColor={Colors.textLight}
+        />
 
-      {/* Patient List */}
-      <ScrollView style={styles.patientList}>
-        {filteredPatients.map((patient) => (
-          <View key={patient.id} style={styles.patientItem}>
-            <TouchableOpacity
-              style={styles.patientContent}
-              onPress={() => selectPatient(patient)}
-            >
-              <Text style={styles.patientName}>{patient.name}</Text>
-              <Text style={styles.patientDetails}>Age: {patient.age} | Phone: {patient.phone}</Text>
-              <Text style={styles.patientAddress}>{patient.address}</Text>
-              <Text style={styles.lastVisit}>Last Visit: {patient.lastVisit}</Text>
-            </TouchableOpacity>
-            
-            <View style={styles.actionButtons}>
-              <TouchableOpacity
-                style={styles.editButton}
-                onPress={() => editPatient(patient)}
-              >
-                <Text style={styles.actionButtonText}>Edit</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={() => deletePatient(patient.id)}
-              >
-                <Text style={styles.actionButtonText}>Delete</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))}
-      </ScrollView>
+        {/* Patient Count */}
+        <Text style={GlobalStyles.countText}>
+          {filteredPatients.length} patient{filteredPatients.length !== 1 ? 's' : ''} found
+        </Text>
 
-      {/* Add New Patient Button */}
-      <TouchableOpacity
-        style={styles.addPatientButton}
-        onPress={() => setModalVisible(true)}
-      >
-        <Text style={styles.buttonText}>+ Add New Patient</Text>
-      </TouchableOpacity>
-
-      {/* Add New Patient Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add New Patient</Text>
-            
-            <Text style={styles.inputLabel}>Patient Name:</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={newPatientName}
-              onChangeText={setNewPatientName}
-              placeholder="Enter patient name"
-            />
-            
-            <Text style={styles.inputLabel}>Age:</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={newPatientAge}
-              onChangeText={setNewPatientAge}
-              placeholder="Enter age"
-              keyboardType="numeric"
-            />
-            
-            <Text style={styles.inputLabel}>Phone:</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={newPatientPhone}
-              onChangeText={setNewPatientPhone}
-              placeholder="Enter phone number"
-              keyboardType="phone-pad"
-            />
-            
-            <Text style={styles.inputLabel}>Address:</Text>
-            <TextInput
-              style={[styles.modalInput, styles.addressInput]}
-              value={newPatientAddress}
-              onChangeText={setNewPatientAddress}
-              placeholder="Enter address"
-              multiline
-            />
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => {
-                  setModalVisible(false);
-                  clearNewPatientForm();
-                }}
-              >
-                <Text style={styles.buttonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.addButton]}
-                onPress={addNewPatient}
-              >
-                <Text style={styles.buttonText}>Add</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Edit Patient Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={editModalVisible}
-        onRequestClose={() => setEditModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit Patient</Text>
-            
-            <Text style={styles.inputLabel}>Patient Name:</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={editPatientName}
-              onChangeText={setEditPatientName}
-              placeholder="Enter patient name"
-            />
-            
-            <Text style={styles.inputLabel}>Age:</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={editPatientAge}
-              onChangeText={setEditPatientAge}
-              placeholder="Enter age"
-              keyboardType="numeric"
-            />
-            
-            <Text style={styles.inputLabel}>Phone:</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={editPatientPhone}
-              onChangeText={setEditPatientPhone}
-              placeholder="Enter phone number"
-              keyboardType="phone-pad"
-            />
-            
-            <Text style={styles.inputLabel}>Address:</Text>
-            <TextInput
-              style={[styles.modalInput, styles.addressInput]}
-              value={editPatientAddress}
-              onChangeText={setEditPatientAddress}
-              placeholder="Enter address"
-              multiline
-            />
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => {
-                  setEditModalVisible(false);
-                  setSelectedPatient(null);
-                }}
-              >
-                <Text style={styles.buttonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.updateButton]}
-                onPress={updatePatient}
-              >
-                <Text style={styles.buttonText}>Update</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Prescription History Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={historyModalVisible}
-        onRequestClose={() => setHistoryModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              Prescription History - {selectedPatient?.name}
-            </Text>
-            
-            <ScrollView style={styles.historyList}>
-              {selectedPatient?.prescriptions?.length > 0 ? (
-                selectedPatient.prescriptions.map((prescription, index) => (
-                  <View key={index} style={styles.historyItem}>
-                    <Text style={styles.historyDate}>{prescription.date}</Text>
-                    <Text style={styles.historyPrescription}>{prescription.prescription}</Text>
-                  </View>
-                ))
-              ) : (
-                <Text style={styles.noHistory}>No prescription history available</Text>
+        {/* Patient List */}
+        <ScrollView style={styles.patientList} showsVerticalScrollIndicator={false}>
+          {filteredPatients.length === 0 ? (
+            <View style={GlobalStyles.emptyState}>
+              <Text style={GlobalStyles.emptyStateText}>
+                {searchText ? 'No patients match your search' : 'No patients added yet'}
+              </Text>
+              {!searchText && (
+                <TouchableOpacity
+                  style={GlobalStyles.secondaryButton}
+                  onPress={() => setModalVisible(true)}
+                >
+                  <Text style={GlobalStyles.buttonText}>Add Your First Patient</Text>
+                </TouchableOpacity>
               )}
-            </ScrollView>
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setHistoryModalVisible(false)}
-              >
-                <Text style={styles.buttonText}>Close</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.addButton]}
-                onPress={() => {
-                  setHistoryModalVisible(false);
-                  navigation.navigate('CreateScript', { selectedPatient: selectedPatient });
-                }}
-              >
-                <Text style={styles.buttonText}>New Script</Text>
-              </TouchableOpacity>
+            </View>
+          ) : (
+            filteredPatients.map((patient) => (
+              <View key={patient.id} style={[GlobalStyles.card, styles.patientCard]}>
+                <View style={styles.patientContent}>
+                  <Text style={GlobalStyles.cardTitle}>{patient.name} {patient.surname}</Text>
+                </View>
+                
+                <View style={styles.actionButtons}>
+                  <TouchableOpacity
+                    style={[GlobalStyles.lightButton, styles.actionButton]}
+                    onPress={() => editPatient(patient)}
+                  >
+                    <Text style={GlobalStyles.buttonTextSmall}>Edit</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[GlobalStyles.dangerButton, styles.actionButton]}
+                    onPress={() => deletePatient(patient.id)}
+                  >
+                    <Text style={GlobalStyles.buttonTextSmall}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))
+          )}
+        </ScrollView>
+
+        {/* Add New Patient Button */}
+        <TouchableOpacity
+          style={[GlobalStyles.primaryButton, styles.addPatientButton]}
+          onPress={() => setModalVisible(true)}
+        >
+          <Text style={GlobalStyles.buttonText}>+ Add New Patient</Text>
+        </TouchableOpacity>
+
+        {/* Add New Patient Modal */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View style={GlobalStyles.modalOverlay}>
+            <View style={GlobalStyles.modalContent}>
+              <Text style={GlobalStyles.modalTitle}>Add New Patient</Text>
+              
+              <Text style={GlobalStyles.inputLabel}>First Name *</Text>
+              <TextInput
+                style={GlobalStyles.input}
+                value={newPatientName}
+                onChangeText={setNewPatientName}
+                placeholder="Enter first name"
+                autoCapitalize="words"
+                placeholderTextColor={Colors.textLight}
+              />
+              
+              <Text style={GlobalStyles.inputLabel}>Surname *</Text>
+              <TextInput
+                style={GlobalStyles.input}
+                value={newPatientSurname}
+                onChangeText={setNewPatientSurname}
+                placeholder="Enter surname"
+                autoCapitalize="words"
+                placeholderTextColor={Colors.textLight}
+              />
+              
+              <View style={GlobalStyles.modalButtonContainer}>
+                <TouchableOpacity
+                  style={[GlobalStyles.modalButton, styles.cancelButton]}
+                  onPress={() => {
+                    setModalVisible(false);
+                    clearNewPatientForm();
+                  }}
+                >
+                  <Text style={GlobalStyles.buttonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[GlobalStyles.modalButton, GlobalStyles.primaryButton]}
+                  onPress={addNewPatient}
+                >
+                  <Text style={GlobalStyles.buttonText}>Add Patient</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
-    </View>
+        </Modal>
+
+        {/* Edit Patient Modal */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={editModalVisible}
+          onRequestClose={() => setEditModalVisible(false)}
+        >
+          <View style={GlobalStyles.modalOverlay}>
+            <View style={GlobalStyles.modalContent}>
+              <Text style={GlobalStyles.modalTitle}>Edit Patient</Text>
+              
+              <Text style={GlobalStyles.inputLabel}>First Name *</Text>
+              <TextInput
+                style={GlobalStyles.input}
+                value={editPatientName}
+                onChangeText={setEditPatientName}
+                placeholder="Enter first name"
+                autoCapitalize="words"
+                placeholderTextColor={Colors.textLight}
+              />
+              
+              <Text style={GlobalStyles.inputLabel}>Surname *</Text>
+              <TextInput
+                style={GlobalStyles.input}
+                value={editPatientSurname}
+                onChangeText={setEditPatientSurname}
+                placeholder="Enter surname"
+                autoCapitalize="words"
+                placeholderTextColor={Colors.textLight}
+              />
+              
+              <View style={GlobalStyles.modalButtonContainer}>
+                <TouchableOpacity
+                  style={[GlobalStyles.modalButton, styles.cancelButton]}
+                  onPress={() => {
+                    setEditModalVisible(false);
+                    setSelectedPatient(null);
+                  }}
+                >
+                  <Text style={GlobalStyles.buttonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[GlobalStyles.modalButton, GlobalStyles.secondaryButton]}
+                  onPress={updatePatient}
+                >
+                  <Text style={GlobalStyles.buttonText}>Update</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </View>
+    </TexturedBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    padding: 20,
-  },
-  pageTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 20,
-    color: '#333',
-  },
-  searchInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    backgroundColor: '#f8f9fa',
-    marginBottom: 15,
-  },
-  patientList: {
-    flex: 1,
-  },
-  patientItem: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    marginBottom: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: '#007AFF',
-    overflow: 'hidden',
-  },
-  patientContent: {
-    padding: 15,
-  },
-  patientName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    color: '#333',
-  },
-  patientDetails: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 3,
-  },
-  patientAddress: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 3,
-  },
-  lastVisit: {
-    fontSize: 11,
-    color: '#999',
-    fontStyle: 'italic',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: '#ddd',
-  },
-  editButton: {
-    flex: 1,
-    backgroundColor: '#ffc107',
-    padding: 10,
-    alignItems: 'center',
-  },
-  deleteButton: {
-    flex: 1,
-    backgroundColor: '#dc3545',
-    padding: 10,
-    alignItems: 'center',
-  },
-  actionButtonText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  addPatientButton: {
-    backgroundColor: '#28a745',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
+  // Textured Background Styles
+  backgroundBase: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: Colors.backgroundGrey,
   },
   
-  // Modal Styles
-  modalOverlay: {
+  textureLayer1: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+    opacity: 0.4,
+    // Simulate a subtle dot pattern
+    shadowColor: Colors.borderGrey,
+    shadowOffset: { width: 1, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+  },
+  
+  textureLayer2: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(30, 58, 138, 0.02)', // Very subtle blue tint
+  },
+  
+  contentContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    zIndex: 1,
   },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
-    width: '90%',
-    maxHeight: '80%',
+  
+  // Component Specific Styles
+  patientList: {
+    flex: 1,
+    marginBottom: 16,
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 20,
+  
+  patientCard: {
+    marginVertical: 6,
+    borderLeftColor: Colors.primaryBlue,
+    borderLeftWidth: 5,
   },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    marginTop: 10,
+  
+  patientContent: {
+    paddingBottom: 12,
   },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    backgroundColor: '#f8f9fa',
-  },
-  addressInput: {
-    height: 60,
-    textAlignVertical: 'top',
-  },
-  modalButtons: {
+  
+  actionButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderGrey,
+    gap: 12,
   },
-  modalButton: {
+  
+  actionButton: {
     flex: 1,
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginHorizontal: 5,
+    paddingVertical: 8,
   },
-  cancelButton: {
-    backgroundColor: '#6c757d',
-  },
-  addButton: {
-    backgroundColor: '#007AFF',
-  },
-  updateButton: {
-    backgroundColor: '#28a745',
-  },
-  historyList: {
-    maxHeight: 300,
+  
+  addPatientButton: {
+    marginTop: 8,
     marginBottom: 20,
   },
-  historyItem: {
-    backgroundColor: '#f8f9fa',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: '#007AFF',
-  },
-  historyDate: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#666',
-    marginBottom: 5,
-  },
-  historyPrescription: {
-    fontSize: 14,
-    color: '#333',
-  },
-  noHistory: {
-    textAlign: 'center',
-    fontSize: 16,
-    color: '#666',
-    fontStyle: 'italic',
-    marginTop: 50,
+  
+  cancelButton: {
+    backgroundColor: Colors.textGrey,
   },
 });
+
+// Export helper functions for other screens to use
+export const PatientDataManager = {
+  getPatients: async () => {
+    try {
+      const storedPatients = await AsyncStorage.getItem(PATIENTS_STORAGE_KEY);
+      return storedPatients ? JSON.parse(storedPatients) : [];
+    } catch (error) {
+      console.error('Error getting patients:', error);
+      return [];
+    }
+  },
+  
+  savePatients: async (patients) => {
+    try {
+      await AsyncStorage.setItem(PATIENTS_STORAGE_KEY, JSON.stringify(patients));
+      return true;
+    } catch (error) {
+      console.error('Error saving patients:', error);
+      return false;
+    }
+  },
+  
+  getPatientById: async (patientId) => {
+    try {
+      const patients = await PatientDataManager.getPatients();
+      return patients.find(patient => patient.id === patientId);
+    } catch (error) {
+      console.error('Error getting patient by ID:', error);
+      return null;
+    }
+  },
+  
+  updatePatient: async (patientId, updatedData) => {
+    try {
+      const patients = await PatientDataManager.getPatients();
+      const updatedPatients = patients.map(patient => 
+        patient.id === patientId ? { ...patient, ...updatedData } : patient
+      );
+      return await PatientDataManager.savePatients(updatedPatients);
+    } catch (error) {
+      console.error('Error updating patient:', error);
+      return false;
+    }
+  }
+};
 
 export default PatientListScreen;
