@@ -1,5 +1,7 @@
+import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import { Colors } from './GlobalStyles';
 
 import CreateScriptScreen from './screens/CreateScriptScreen';
 import HomeScreen from './screens/HomeScreen';
@@ -12,7 +14,20 @@ const Stack = createStackNavigator();
 function App() {
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Home">
+      <Stack.Navigator 
+        initialRouteName="Home"
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: Colors.primaryBlue,
+          },
+          headerTintColor: Colors.white,
+          headerTitleStyle: {
+            fontWeight: '600',
+            fontSize: 16,
+          },
+          headerTitleAlign: 'center',
+        }}
+      >
         <Stack.Screen 
           name="Home" 
           component={HomeScreen} 
@@ -29,14 +44,14 @@ function App() {
           options={{ title: 'Preset Prescriptions' }}
         />
         <Stack.Screen 
-          name="Settings" 
-          component={SettingsScreen} 
-          options={{ title: 'Settings' }}
-        />
-        <Stack.Screen 
           name="PatientList" 
           component={PatientListScreen} 
           options={{ title: 'Patient List' }}
+        />
+        <Stack.Screen 
+          name="Settings" 
+          component={SettingsScreen} 
+          options={{ title: 'Settings' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

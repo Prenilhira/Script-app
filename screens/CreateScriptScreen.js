@@ -19,9 +19,9 @@ import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GlobalStyles, Colors } from '../GlobalStyles';
-import { PatientDataManager } from './PatientListScreen';
 
 const PRESETS_STORAGE_KEY = '@prescription_presets';
+const PATIENTS_STORAGE_KEY = '@patients_data';
 
 // Textured Background Component
 const TexturedBackground = ({ children }) => (
@@ -42,7 +42,6 @@ function CreateScriptScreen({ navigation, route }) {
   const [age, setAge] = React.useState('');
   const [selectedPatient, setSelectedPatient] = React.useState(null);
   const [customPatientName, setCustomPatientName] = React.useState('');
-  const [address, setAddress] = React.useState('');
   const [prescription, setPrescription] = React.useState('');
   const [selectedPreset, setSelectedPreset] = React.useState(null);
   const [customPrescription, setCustomPrescription] = React.useState('');
@@ -61,25 +60,17 @@ function CreateScriptScreen({ navigation, route }) {
   // Refs
   const prescriptionRef = React.useRef();
 
-  // Load data on mount
   React.useEffect(() => {
     loadData();
   }, []);
 
-  // Handle preset from navigation (when coming from PresetPrescriptionScreen)
-  React.useEffect(() => {
-    if (route.params?.preset) {
-      setSelectedPreset(route.params.preset);
-      setPrescription(formatPresetPrescription(route.params.preset));
-      setUseCustomPrescription(false);
-    }
-  }, [route.params]);
-
   const loadData = async () => {
     try {
       // Load patients
-      const patientsData = await PatientDataManager.getPatients();
-      setPatients(patientsData);
+      const storedPatients = await AsyncStorage.getItem(PATIENTS_STORAGE_KEY);
+      if (storedPatients) {
+        setPatients(JSON.parse(storedPatients));
+      }
 
       // Load presets
       const storedPresets = await AsyncStorage.getItem(PRESETS_STORAGE_KEY);
@@ -88,25 +79,16 @@ function CreateScriptScreen({ navigation, route }) {
       }
     } catch (error) {
       console.error('Error loading data:', error);
-      Alert.alert('Error', 'Failed to load data');
     }
   };
 
-  const formatPresetPrescription = (preset) => {
-    let formatted = `Diagnosis: ${preset.diagnosis}\n\nMedications:\n`;
-    preset.medications.forEach((med, index) => {
-      formatted += `${index + 1}. ${med.name} ${med.dose}\n   ${med.direction}\n   Quantity: ${med.quantity}\n\n`;
-    });
-    return formatted;
-  };
-
-  const formatDate = (dateObj) => {
+  const formatDate = (date) => {
     const options = { 
       year: 'numeric', 
       month: 'long', 
       day: 'numeric' 
     };
-    return dateObj.toLocaleDateString('en-US', options);
+    return date.toLocaleDateString('en-US', options);
   };
 
   const onDateChange = (event, selectedDate) => {
@@ -117,146 +99,68 @@ function CreateScriptScreen({ navigation, route }) {
 
   const handlePatientSelect = (patient) => {
     setSelectedPatient(patient);
-    setUseCustomPatient(false);
     setShowPatientDropdown(false);
-    setAddress(`${patient.name} ${patient.surname}`);
   };
 
   const handlePresetSelect = (preset) => {
     setSelectedPreset(preset);
-    setPrescription(formatPresetPrescription(preset));
-    setUseCustomPrescription(false);
+    
+    // Format prescription from preset
+    let prescriptionText = '';
+    preset.medications.forEach((medication, index) => {
+      prescriptionText += `${index + 1}. ${medication.name} ${medication.dose}\n   ${medication.direction}\n   Quantity: ${medication.quantity}\n\n`;
+    });
+    
+    setPrescription(prescriptionText.trim());
     setShowPresetDropdown(false);
   };
 
+  const validateForm = () => {
+    if (!useCustomPatient && !selectedPatient) {
+      Alert.alert('Error', 'Please select a patient or use custom name.');
+      return false;
+    }
+    
+    if (useCustomPatient && !customPatientName.trim()) {
+      Alert.alert('Error', 'Please enter a patient name.');
+      return false;
+    }
+
+    const prescriptionText = useCustomPrescription ? customPrescription : prescription;
+    if (!prescriptionText.trim()) {
+      Alert.alert('Error', 'Please enter prescription details.');
+      return false;
+    }
+
+    return true;
+  };
+
   const generatePrescription = async () => {
+    if (!validateForm()) return;
+
+    setLoading(true);
+    
     try {
-      setLoading(true);
-      
       // Capture the prescription as image
       const uri = await captureRef(prescriptionRef, {
-        format: 'jpg',
+        format: 'png',
         quality: 1.0,
       });
-      
-      setLoading(false);
-      
-      // Show export options
-      Alert.alert(
-        'Prescription Generated',
-        'Choose how to share the prescription:',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'WhatsApp', 
-            onPress: () => exportToWhatsApp(uri)
-          },
-          { 
-            text: 'Email', 
-            onPress: () => exportToEmail(uri)
-          }
-        ]
-      );
-    } catch (error) {
-      setLoading(false);
-      console.error('Error generating prescription:', error);
-      Alert.alert('Error', 'Failed to generate prescription');
-    }
-  };
 
-  const exportToWhatsApp = async (imageUri) => {
-    try {
-      const patientName = selectedPatient 
-        ? `${selectedPatient.name} ${selectedPatient.surname}` 
-        : customPatientName;
-      
-      if (!patientName) {
-        Alert.alert('Error', 'Please select or enter a patient name first');
-        return;
-      }
-
-      // Check if patient has a cell number for WhatsApp direct link
-      if (selectedPatient && selectedPatient.cellNumber) {
-        // Format cell number for WhatsApp (remove spaces, dashes, etc.)
-        const cleanNumber = selectedPatient.cellNumber.replace(/[^\d]/g, '');
-        const whatsappUrl = `whatsapp://send?phone=${cleanNumber}&text=Prescription for ${patientName}`;
-        
-        // Check if WhatsApp is available
-        const canOpenWhatsApp = await Linking.canOpenURL(whatsappUrl);
-        
-        if (canOpenWhatsApp) {
-          // First share the image
-          await Sharing.shareAsync(imageUri, {
-            mimeType: 'image/jpeg',
-            dialogTitle: `Prescription for ${patientName}`,
-          });
-          
-          // Then open WhatsApp chat with the patient
-          setTimeout(() => {
-            Linking.openURL(whatsappUrl);
-          }, 1000);
-        } else {
-          // Fallback to general sharing if WhatsApp not available
-          await Sharing.shareAsync(imageUri, {
-            mimeType: 'image/jpeg',
-            dialogTitle: `Prescription for ${patientName}`,
-          });
-        }
-      } else {
-        // If no cell number, just share the image normally
-        await Sharing.shareAsync(imageUri, {
-          mimeType: 'image/jpeg',
-          dialogTitle: `Prescription for ${patientName}`,
+      // Share or save the prescription
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'image/png',
+          dialogTitle: 'Share Prescription',
         });
-        
-        // Inform user about adding cell number for direct WhatsApp
-        if (selectedPatient) {
-          Alert.alert(
-            'WhatsApp Sharing',
-            'Prescription shared! To send directly to patient\'s WhatsApp, add their cell number in Patient Management.',
-            [{ text: 'OK' }]
-          );
-        }
-      }
-    } catch (error) {
-      console.error('Error sharing to WhatsApp:', error);
-      Alert.alert('Error', 'Failed to share to WhatsApp');
-    }
-  };
-
-  const exportToEmail = async (imageUri) => {
-    try {
-      const patientName = selectedPatient 
-        ? `${selectedPatient.name} ${selectedPatient.surname}` 
-        : customPatientName;
-      
-      if (!patientName) {
-        Alert.alert('Error', 'Please select or enter a patient name first');
-        return;
-      }
-
-      const subject = `Prescription for ${patientName}`;
-      const body = `Please find attached prescription for ${patientName}.`;
-      
-      // Create email URL
-      const emailUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-      
-      // Share the image first, then open email
-      await Sharing.shareAsync(imageUri, {
-        mimeType: 'image/jpeg',
-        dialogTitle: subject,
-      });
-      
-      // Open email app
-      const canOpen = await Linking.canOpenURL(emailUrl);
-      if (canOpen) {
-        await Linking.openURL(emailUrl);
       } else {
-        Alert.alert('Error', 'No email app found');
+        Alert.alert('Success', 'Prescription generated successfully!');
       }
     } catch (error) {
-      console.error('Error sharing to email:', error);
-      Alert.alert('Error', 'Failed to export to email');
+      console.error('Error generating prescription:', error);
+      Alert.alert('Error', 'Failed to generate prescription. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -270,11 +174,9 @@ function CreateScriptScreen({ navigation, route }) {
           text: 'Clear', 
           style: 'destructive',
           onPress: () => {
-            setDate(new Date());
             setAge('');
             setSelectedPatient(null);
             setCustomPatientName('');
-            setAddress('');
             setPrescription('');
             setSelectedPreset(null);
             setCustomPrescription('');
@@ -286,23 +188,24 @@ function CreateScriptScreen({ navigation, route }) {
     );
   };
 
-  const getCurrentPrescriptionText = () => {
-    if (useCustomPrescription) {
-      return customPrescription;
-    } else if (selectedPreset) {
-      return prescription;
-    } else {
-      return customPrescription;
+  const getPatientName = () => {
+    if (useCustomPatient) {
+      return customPatientName;
     }
+    return selectedPatient ? `${selectedPatient.name} ${selectedPatient.surname}` : '';
+  };
+
+  const getPrescriptionText = () => {
+    return useCustomPrescription ? customPrescription : prescription;
   };
 
   return (
     <TexturedBackground>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Prescription Form */}
+      <ScrollView style={GlobalStyles.padding} showsVerticalScrollIndicator={false}>
+        <Text style={GlobalStyles.pageTitle}>Create Prescription</Text>
+
+        {/* Form Fields */}
         <View style={styles.formContainer}>
-          <Text style={GlobalStyles.pageTitle}>Create Prescription</Text>
-          
           {/* Date Field */}
           <View style={styles.fieldContainer}>
             <Text style={styles.fieldLabel}>Date *</Text>
@@ -384,20 +287,6 @@ function CreateScriptScreen({ navigation, route }) {
             )}
           </View>
 
-          {/* Address Field */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>Address</Text>
-            <TextInput
-              style={[GlobalStyles.input, styles.multilineInput]}
-              value={address}
-              onChangeText={setAddress}
-              placeholder="Enter patient address"
-              multiline
-              numberOfLines={3}
-              placeholderTextColor={Colors.textLight}
-            />
-          </View>
-
           {/* Prescription Content */}
           <View style={styles.fieldContainer}>
             <Text style={styles.fieldLabel}>Prescription Content *</Text>
@@ -421,7 +310,7 @@ function CreateScriptScreen({ navigation, route }) {
               </TouchableOpacity>
             </View>
 
-            {!useCustomPrescription ? (
+            {!useCustomPrescription && (
               <TouchableOpacity
                 style={styles.dropdownButton}
                 onPress={() => setShowPresetDropdown(true)}
@@ -431,7 +320,7 @@ function CreateScriptScreen({ navigation, route }) {
                 </Text>
                 <Text style={styles.dropdownArrow}>▼</Text>
               </TouchableOpacity>
-            ) : null}
+            )}
 
             <TextInput
               style={[GlobalStyles.input, styles.prescriptionInput]}
@@ -468,32 +357,27 @@ function CreateScriptScreen({ navigation, route }) {
           </View>
         </View>
 
-                  {/* Hidden Prescription Layout for Capture */}
+        {/* Hidden Prescription Layout for Capture */}
         <View style={styles.hiddenContainer}>
           <View ref={prescriptionRef} style={styles.prescriptionContainer}>
             {/* Header */}
             <View style={styles.headerSection}>
               <Text style={styles.practiceTitle}>DR P. HIRA INC.</Text>
-              <Text style={styles.practiceNumber}>PR. NO 0929484</Text>
+              <Text style={styles.practiceNumber}>PR. NO: 0860000123456</Text>
               
               <View style={styles.contactInfo}>
                 <View style={styles.leftContact}>
-                  <Text style={styles.contactText}>Consulting rooms :</Text>
-                  <Text style={styles.contactText}>5/87 Dunswart Avenue</Text>
-                  <Text style={styles.contactText}>Dunswart, Boksburg, 1459</Text>
-                  <Text style={styles.contactText}>PO Box 18131</Text>
-                  <Text style={styles.contactText}>Actonville, Benoni, 1501</Text>
+                  <Text style={styles.contactText}>📞 011 123 4567</Text>
+                  <Text style={styles.contactText}>📧 admin@drhira.co.za</Text>
                 </View>
                 <View style={styles.rightContact}>
-                  <Text style={styles.contactText}>Tel: 010 493 3544</Text>
-                  <Text style={styles.contactText}>Tel: 011 914 3093</Text>
-                  <Text style={styles.contactText}>Cell: 060 557 3625</Text>
-                  <Text style={styles.contactText}>e-mail: info@drhirainc.com</Text>
+                  <Text style={styles.contactText}>123 Medical Street</Text>
+                  <Text style={styles.contactText}>Johannesburg, 2000</Text>
                 </View>
               </View>
             </View>
 
-            {/* Patient Information */}
+            {/* Patient Section */}
             <View style={styles.patientSection}>
               <View style={styles.patientInfoRow}>
                 <View style={styles.dateField}>
@@ -502,74 +386,38 @@ function CreateScriptScreen({ navigation, route }) {
                     <Text style={styles.patientFieldValue}>{formatDate(date)}</Text>
                   </View>
                 </View>
-                <View style={styles.ageField}>
-                  <Text style={styles.patientFieldLabel}>Age of Minor:</Text>
-                  <View style={styles.underline}>
-                    <Text style={styles.patientFieldValue}>{age || ''}</Text>
+                
+                {age ? (
+                  <View style={styles.ageField}>
+                    <Text style={styles.patientFieldLabel}>Age:</Text>
+                    <View style={styles.underline}>
+                      <Text style={styles.patientFieldValue}>{age}</Text>
+                    </View>
                   </View>
-                </View>
+                ) : null}
               </View>
-              
+
               <View style={styles.nameField}>
-                <Text style={styles.patientFieldLabel}>Name:</Text>
+                <Text style={styles.patientFieldLabel}>Patient Name:</Text>
                 <View style={styles.underline}>
-                  <Text style={styles.patientFieldValue}>
-                    {selectedPatient 
-                      ? `${selectedPatient.name} ${selectedPatient.surname}` 
-                      : customPatientName}
-                  </Text>
-                </View>
-              </View>
-              
-              <View style={styles.addressField}>
-                <Text style={styles.patientFieldLabel}>Address :</Text>
-                <View style={styles.underline}>
-                  <Text style={styles.patientFieldValue}>{address || ''}</Text>
+                  <Text style={styles.patientFieldValue}>{getPatientName()}</Text>
                 </View>
               </View>
             </View>
 
-            {/* Prescription Content */}
+            {/* Prescription Section */}
             <View style={styles.rxSection}>
-              <Text style={styles.rxLabel}>Rx :</Text>
+              <Text style={styles.rxLabel}>℞</Text>
               <View style={styles.rxContentContainer}>
-                <Text style={styles.rxContent}>{getCurrentPrescriptionText()}</Text>
+                <Text style={styles.rxContent}>{getPrescriptionText()}</Text>
               </View>
             </View>
 
             {/* Signature Section */}
             <View style={styles.signatureMainSection}>
-              <Text style={styles.signedText}>Signed</Text>
-              <Text style={styles.signedDoctor}>Dr P Hira</Text>
-              <Text style={styles.signedQualification}>MBBCh</Text>
-              
-              {/* Signature image placeholder */}
-              <View style={styles.signatureImageContainer}>
-                {/* TODO: Replace with actual signature image */}
-                {/* 
-              // Replace the signature placeholder with:
-              <Image 
-                source={require('../assets/signature.png')} 
-                style={styles.signatureImage}
-                resizeMode="contain"
-              />
-                */}
-                <View style={styles.signaturePlaceholder}>
-                  <Text style={styles.signatureText}>Signature</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Bottom Doctors Section */}
-            <View style={styles.bottomDoctorsSection}>
-              <View style={styles.bottomDoctorLeft}>
-                <Text style={styles.bottomDoctorName}>Dr P.Hira</Text>
-                <Text style={styles.bottomDoctorQualification}>MBBCH(Wits)</Text>
-              </View>
-              <View style={styles.bottomDoctorRight}>
-                <Text style={styles.bottomDoctorName}>Dr. H.E. Foster</Text>
-                <Text style={styles.bottomDoctorQualification}>MBBCH(Wits)</Text>
-              </View>
+              <Text style={styles.signedText}>_____________________</Text>
+              <Text style={styles.bottomDoctorName}>Dr. P. Hira</Text>
+              <Text style={styles.bottomDoctorQualification}>MBBCH(Wits)</Text>
             </View>
           </View>
         </View>
@@ -658,7 +506,7 @@ function CreateScriptScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  // Background Styles
+  // Textured Background Styles
   backgroundBase: {
     position: 'absolute',
     top: 0,
@@ -696,34 +544,29 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
 
-  // Main Container
-  container: {
-    flex: 1,
-    padding: 20,
-  },
-
+  // Form Styles
   formContainer: {
-    marginBottom: 40,
-  },
-
-  // Field Styles
-  fieldContainer: {
+    gap: 16,
     marginBottom: 20,
   },
 
-  fieldLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textPrimary,
+  fieldContainer: {
     marginBottom: 8,
   },
 
-  // Date Picker Styles
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
+    color: Colors.textPrimary,
+  },
+
+  // Date Button
   dateButton: {
     borderWidth: 1,
     borderColor: Colors.borderGrey,
     borderRadius: 10,
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     backgroundColor: Colors.white,
   },
@@ -739,7 +582,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.backgroundGrey,
     borderRadius: 8,
     padding: 4,
-    marginBottom: 12,
+    marginBottom: 8,
   },
 
   toggleButton: {
@@ -773,10 +616,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.borderGrey,
     borderRadius: 10,
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     backgroundColor: Colors.white,
-    marginBottom: 12,
+    marginBottom: 8,
   },
 
   dropdownText: {
@@ -791,13 +634,8 @@ const styles = StyleSheet.create({
   },
 
   // Input Styles
-  multilineInput: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-
   prescriptionInput: {
-    minHeight: 150,
+    minHeight: 120,
     textAlignVertical: 'top',
   },
 
@@ -837,7 +675,7 @@ const styles = StyleSheet.create({
   },
 
   practiceTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 8,
@@ -845,7 +683,7 @@ const styles = StyleSheet.create({
   },
 
   practiceNumber: {
-    fontSize: 16,
+    fontSize: 14,
     textAlign: 'center',
     marginBottom: 20,
     color: '#000',
@@ -866,7 +704,7 @@ const styles = StyleSheet.create({
   },
 
   contactText: {
-    fontSize: 14,
+    fontSize: 12,
     marginBottom: 3,
     color: '#000',
   },
@@ -893,15 +731,11 @@ const styles = StyleSheet.create({
   },
 
   nameField: {
-    marginBottom: 20,
-  },
-
-  addressField: {
     marginBottom: 0,
   },
 
   patientFieldLabel: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
     color: '#000',
     marginBottom: 5,
@@ -916,7 +750,7 @@ const styles = StyleSheet.create({
   },
 
   patientFieldValue: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#000',
     minHeight: 20,
   },
@@ -939,94 +773,34 @@ const styles = StyleSheet.create({
   },
 
   rxContent: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 14,
+    lineHeight: 20,
     color: '#000',
   },
 
   // Signature Section
   signatureMainSection: {
     paddingHorizontal: 10,
-    marginBottom: 40,
-    alignItems: 'flex-start',
+    alignItems: 'flex-end',
   },
 
   signedText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
     color: '#000',
-    marginBottom: 5,
-  },
-
-  signedDoctor: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#000',
-    marginBottom: 5,
-  },
-
-  signedQualification: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#000',
-    marginBottom: 15,
-  },
-
-  signatureImageContainer: {
-    width: 120,
-    height: 60,
-    marginBottom: 20,
-  },
-
-  signatureImage: {
-    width: 120,
-    height: 60,
-  },
-
-  signaturePlaceholder: {
-    width: 120,
-    height: 60,
-    borderWidth: 1,
-    borderColor: '#000',
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  signatureText: {
-    fontSize: 12,
-    color: Colors.textLight,
-  },
-
-  // Bottom Doctors Section
-  bottomDoctorsSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: '#000',
-    paddingTop: 15,
-    paddingHorizontal: 10,
-  },
-
-  bottomDoctorLeft: {
-    alignItems: 'center',
-  },
-
-  bottomDoctorRight: {
-    alignItems: 'center',
+    marginBottom: 10,
   },
 
   bottomDoctorName: {
     fontSize: 14,
     fontWeight: 'bold',
     color: '#000',
-    textAlign: 'center',
+    marginBottom: 5,
   },
 
   bottomDoctorQualification: {
     fontSize: 12,
     color: '#000',
-    textAlign: 'center',
   },
 
   // Modal Styles
@@ -1045,11 +819,10 @@ const styles = StyleSheet.create({
   modalItemText: {
     fontSize: 16,
     color: Colors.textPrimary,
-    fontWeight: '500',
   },
 
   modalItemSubtext: {
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.textSecondary,
     marginTop: 4,
   },

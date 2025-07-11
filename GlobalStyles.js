@@ -36,19 +36,13 @@ export const GlobalStyles = StyleSheet.create({
     backgroundColor: Colors.backgroundGrey,
   },
   
-  // Textured Background Effect
-  texturedBackground: {
-    backgroundColor: Colors.backgroundGrey,
-    position: 'relative',
-  },
-  
   // Card Styles
   card: {
     backgroundColor: Colors.white,
     borderRadius: 12,
     padding: 16,
-    marginVertical: 6,
-    marginHorizontal: 4,
+    marginVertical: 4,
+    marginHorizontal: 2,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -57,154 +51,152 @@ export const GlobalStyles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.primaryBlue,
   },
   
   // Button Styles - Blue Theme
   primaryButton: {
     backgroundColor: Colors.primaryBlue,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     alignItems: 'center',
     shadowColor: Colors.primaryBlue,
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 2,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   
   secondaryButton: {
     backgroundColor: Colors.secondaryBlue,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     alignItems: 'center',
     shadowColor: Colors.secondaryBlue,
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 2,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   
   lightButton: {
     backgroundColor: Colors.lightBlue,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     alignItems: 'center',
     shadowColor: Colors.lightBlue,
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 2,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   
   warningButton: {
     backgroundColor: Colors.warning,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     alignItems: 'center',
     shadowColor: Colors.warning,
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 2,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   
   dangerButton: {
     backgroundColor: Colors.error,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     alignItems: 'center',
     shadowColor: Colors.error,
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 2,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   
   // Text Styles
   buttonText: {
     color: Colors.white,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
 
   buttonTextSmall: {
     color: Colors.white,
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
   },
   
   cardTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: Colors.primaryBlue,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   
   cardSubtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.textSecondary,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   
   pageTitle: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: 'bold',
     color: Colors.textPrimary,
-    marginBottom: 20,
+    marginBottom: 16,
     textAlign: 'center',
   },
   
   headerText: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: Colors.textPrimary,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   
   subHeaderText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 8,
+  },
+
+  sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: Colors.textPrimary,
     marginBottom: 12,
   },
-
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    marginBottom: 16,
-  },
   
   bodyText: {
-    fontSize: 16,
+    fontSize: 14,
     color: Colors.textPrimary,
-    lineHeight: 24,
+    lineHeight: 20,
   },
   
   captionText: {
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.textLight,
   },
   
@@ -212,10 +204,10 @@ export const GlobalStyles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: Colors.borderGrey,
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 14,
     backgroundColor: Colors.white,
     shadowColor: '#000',
     shadowOffset: {
@@ -225,15 +217,16 @@ export const GlobalStyles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
+    marginBottom: 4,
   },
   
   searchInput: {
     borderWidth: 1,
     borderColor: Colors.borderGrey,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    fontSize: 16,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    fontSize: 14,
     backgroundColor: Colors.white,
     shadowColor: '#000',
     shadowOffset: {
@@ -243,7 +236,7 @@ export const GlobalStyles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 3,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   
   // Modal Styles
@@ -257,7 +250,7 @@ export const GlobalStyles = StyleSheet.create({
   modalContent: {
     backgroundColor: Colors.white,
     borderRadius: 16,
-    padding: 24,
+    padding: 20,
     width: '90%',
     maxWidth: 400,
     shadowColor: '#000',
@@ -271,33 +264,33 @@ export const GlobalStyles = StyleSheet.create({
   },
   
   modalTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
     color: Colors.textPrimary,
   },
   
   // Form Styles
   inputLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    marginBottom: 6,
-    marginTop: 12,
+    marginBottom: 4,
+    marginTop: 8,
     color: Colors.textPrimary,
   },
   
   modalButtonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 24,
-    gap: 12,
+    marginTop: 16,
+    gap: 8,
   },
   
   modalButton: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 10,
+    paddingVertical: 12,
+    borderRadius: 8,
     alignItems: 'center',
   },
   
@@ -319,11 +312,11 @@ export const GlobalStyles = StyleSheet.create({
   },
   
   padding: {
-    padding: 20,
+    padding: 16,
   },
   
   marginVertical: {
-    marginVertical: 8,
+    marginVertical: 6,
   },
   
   // Loading Styles
@@ -336,7 +329,7 @@ export const GlobalStyles = StyleSheet.create({
   
   loadingText: {
     marginTop: 12,
-    fontSize: 16,
+    fontSize: 14,
     color: Colors.textSecondary,
   },
   
@@ -345,24 +338,24 @@ export const GlobalStyles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 20,
+    paddingVertical: 40,
+    paddingHorizontal: 16,
   },
   
   emptyStateText: {
-    fontSize: 18,
+    fontSize: 16,
     color: Colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 24,
+    marginBottom: 20,
+    lineHeight: 22,
   },
   
   // Count/Status Styles
   countText: {
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.textLight,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
 });
 

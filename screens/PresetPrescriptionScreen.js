@@ -18,14 +18,9 @@ const PRESETS_STORAGE_KEY = '@prescription_presets';
 // Textured Background Component
 const TexturedBackground = ({ children }) => (
   <View style={[GlobalStyles.container]}>
-    {/* Base background */}
     <View style={styles.backgroundBase} />
-    
-    {/* Subtle texture overlays */}
     <View style={styles.textureLayer1} />
     <View style={styles.textureLayer2} />
-    
-    {/* Content */}
     <View style={styles.contentContainer}>
       {children}
     </View>
@@ -62,95 +57,119 @@ function PresetPrescriptionScreen({ navigation }) {
       if (storedPresets) {
         setPresets(JSON.parse(storedPresets));
       } else {
-        // Initialize with sample data
-        const samplePresets = [
-          {
-            id: 1,
-            diagnosis: 'Common Cold',
-            medications: [
-              { id: 1, name: 'Paracetamol', dose: '500mg', direction: 'Take every 6 hours', quantity: '20 tablets' },
-              { id: 2, name: 'Cough Syrup', dose: '10ml', direction: 'Take 3 times daily', quantity: '100ml bottle' }
-            ]
-          },
-          {
-            id: 2,
-            diagnosis: 'Headache',
-            medications: [
-              { id: 1, name: 'Ibuprofen', dose: '400mg', direction: 'Take when needed', quantity: '10 tablets' }
-            ]
-          },
-          {
-            id: 3,
-            diagnosis: 'Allergies',
-            medications: [
-              { id: 1, name: 'Antihistamine', dose: '10mg', direction: 'Take once daily', quantity: '30 tablets' },
-              { id: 2, name: 'Nasal Spray', dose: '2 sprays', direction: 'Use twice daily', quantity: '1 bottle' }
-            ]
-          }
-        ];
-        setPresets(samplePresets);
-        await savePresets(samplePresets);
+        // Start with empty array - no sample data
+        setPresets([]);
       }
     } catch (error) {
       console.error('Error loading presets:', error);
-      Alert.alert('Error', 'Failed to load presets');
+      Alert.alert('Error', 'Failed to load presets. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const savePresets = async (presetsToSave) => {
+  const savePresets = async (presetsData) => {
     try {
-      await AsyncStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(presetsToSave));
+      await AsyncStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(presetsData));
     } catch (error) {
       console.error('Error saving presets:', error);
-      Alert.alert('Error', 'Failed to save presets');
+      throw error;
     }
   };
 
-  const filteredPresets = presets.filter(preset =>
-    preset.diagnosis.toLowerCase().includes(searchText.toLowerCase())
-  );
-
-  const openCreateModal = () => {
-    setDiagnosis('');
-    setMedications([]);
-    clearMedicationForm();
-    setModalVisible(true);
+  const addNewPreset = async () => {
+    if (diagnosis.trim() && medications.length > 0) {
+      const newPreset = {
+        id: Date.now(),
+        diagnosis: diagnosis.trim(),
+        medications: medications.map(med => ({
+          ...med,
+          id: Date.now() + Math.random()
+        }))
+      };
+      
+      const updatedPresets = [...presets, newPreset];
+      setPresets(updatedPresets);
+      
+      try {
+        await savePresets(updatedPresets);
+        setModalVisible(false);
+        clearPresetForm();
+        Alert.alert('Success', 'Preset added successfully!');
+      } catch (error) {
+        Alert.alert('Error', 'Failed to save preset. Please try again.');
+      }
+    } else {
+      Alert.alert('Error', 'Please enter a diagnosis and at least one medication.');
+    }
   };
 
-  const openEditModal = (preset) => {
-    setSelectedPreset(preset);
-    setDiagnosis(preset.diagnosis);
-    setMedications([...preset.medications]);
-    clearMedicationForm();
-    setEditModalVisible(true);
+  const updatePreset = async () => {
+    if (diagnosis.trim() && medications.length > 0) {
+      const updatedPresets = presets.map(preset =>
+        preset.id === selectedPreset.id
+          ? {
+              ...preset,
+              diagnosis: diagnosis.trim(),
+              medications: medications.map(med => ({
+                ...med,
+                id: med.id || Date.now() + Math.random()
+              }))
+            }
+          : preset
+      );
+      setPresets(updatedPresets);
+      
+      try {
+        await savePresets(updatedPresets);
+        setEditModalVisible(false);
+        setSelectedPreset(null);
+        clearPresetForm();
+        Alert.alert('Success', 'Preset updated successfully!');
+      } catch (error) {
+        Alert.alert('Error', 'Failed to update preset. Please try again.');
+      }
+    } else {
+      Alert.alert('Error', 'Please enter a diagnosis and at least one medication.');
+    }
   };
 
-  const deletePreset = (presetId) => {
+  const deletePreset = (preset) => {
     Alert.alert(
       'Delete Preset',
-      'Are you sure you want to delete this preset?',
+      `Are you sure you want to delete the "${preset.diagnosis}" preset?`,
       [
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Delete', 
           style: 'destructive',
           onPress: async () => {
-            const updatedPresets = presets.filter(preset => preset.id !== presetId);
+            const updatedPresets = presets.filter(p => p.id !== preset.id);
             setPresets(updatedPresets);
-            await savePresets(updatedPresets);
-            Alert.alert('Success', 'Preset deleted successfully');
+            
+            try {
+              await savePresets(updatedPresets);
+              Alert.alert('Success', 'Preset deleted successfully!');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete preset. Please try again.');
+            }
           }
         }
       ]
     );
   };
 
+  const editPreset = (preset) => {
+    setSelectedPreset(preset);
+    setDiagnosis(preset.diagnosis);
+    setMedications([...preset.medications]);
+    setEditModalVisible(true);
+  };
+
   const addMedication = () => {
     if (medicationName.trim() && dose.trim() && direction.trim() && quantity.trim()) {
       const newMedication = {
-        id: Date.now(),
+        id: Date.now() + Math.random(),
         name: medicationName.trim(),
         dose: dose.trim(),
         direction: direction.trim(),
@@ -158,13 +177,11 @@ function PresetPrescriptionScreen({ navigation }) {
       };
       
       if (editingMedicationIndex >= 0) {
-        // Editing existing medication
         const updatedMedications = [...medications];
-        updatedMedications[editingMedicationIndex] = { ...newMedication, id: medications[editingMedicationIndex].id };
+        updatedMedications[editingMedicationIndex] = newMedication;
         setMedications(updatedMedications);
         setEditingMedicationIndex(-1);
       } else {
-        // Adding new medication
         setMedications([...medications, newMedication]);
       }
       
@@ -186,10 +203,12 @@ function PresetPrescriptionScreen({ navigation }) {
   const deleteMedication = (index) => {
     const updatedMedications = medications.filter((_, i) => i !== index);
     setMedications(updatedMedications);
-    if (editingMedicationIndex === index) {
-      clearMedicationForm();
-      setEditingMedicationIndex(-1);
-    }
+  };
+
+  const clearPresetForm = () => {
+    setDiagnosis('');
+    setMedications([]);
+    clearMedicationForm();
   };
 
   const clearMedicationForm = () => {
@@ -200,55 +219,9 @@ function PresetPrescriptionScreen({ navigation }) {
     setEditingMedicationIndex(-1);
   };
 
-  const savePreset = async () => {
-    if (diagnosis.trim() && medications.length > 0) {
-      const newPreset = {
-        id: Date.now(),
-        diagnosis: diagnosis.trim(),
-        medications: medications
-      };
-      const updatedPresets = [...presets, newPreset];
-      setPresets(updatedPresets);
-      await savePresets(updatedPresets);
-      setModalVisible(false);
-      Alert.alert('Success', 'New preset created successfully!');
-    } else {
-      Alert.alert('Error', 'Please add a diagnosis and at least one medication.');
-    }
-  };
-
-  const updatePreset = async () => {
-    if (diagnosis.trim() && medications.length > 0) {
-      const updatedPresets = presets.map(preset =>
-        preset.id === selectedPreset.id
-          ? { ...preset, diagnosis: diagnosis.trim(), medications: medications }
-          : preset
-      );
-      setPresets(updatedPresets);
-      await savePresets(updatedPresets);
-      setEditModalVisible(false);
-      setSelectedPreset(null);
-      Alert.alert('Success', 'Preset updated successfully!');
-    } else {
-      Alert.alert('Error', 'Please add a diagnosis and at least one medication.');
-    }
-  };
-
-  const usePreset = (preset) => {
-    Alert.alert(
-      'Use Preset',
-      `Use "${preset.diagnosis}" preset for prescription?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Use', 
-          onPress: () => {
-            navigation.navigate('CreateScript', { preset: preset });
-          }
-        }
-      ]
-    );
-  };
+  const filteredPresets = presets.filter(preset =>
+    preset.diagnosis.toLowerCase().includes(searchText.toLowerCase())
+  );
 
   if (loading) {
     return (
@@ -264,7 +237,7 @@ function PresetPrescriptionScreen({ navigation }) {
   return (
     <TexturedBackground>
       <View style={GlobalStyles.padding}>
-        <Text style={GlobalStyles.pageTitle}>Prescription Presets</Text>
+        <Text style={GlobalStyles.pageTitle}>Preset Prescriptions</Text>
         
         {/* Search Bar */}
         <TextInput
@@ -275,64 +248,65 @@ function PresetPrescriptionScreen({ navigation }) {
           placeholderTextColor={Colors.textLight}
         />
 
-        {/* Presets Count */}
+        {/* Preset Count */}
         <Text style={GlobalStyles.countText}>
           {filteredPresets.length} preset{filteredPresets.length !== 1 ? 's' : ''} found
         </Text>
+
+        {/* Add New Preset Button */}
+        <TouchableOpacity
+          style={[GlobalStyles.primaryButton, styles.addButton]}
+          onPress={() => setModalVisible(true)}
+        >
+          <Text style={GlobalStyles.buttonText}>+ Add New Preset</Text>
+        </TouchableOpacity>
 
         {/* Presets List */}
         <ScrollView style={styles.presetsList} showsVerticalScrollIndicator={false}>
           {filteredPresets.length === 0 ? (
             <View style={GlobalStyles.emptyState}>
               <Text style={GlobalStyles.emptyStateText}>
-                {searchText ? 'No presets match your search' : 'No presets created yet'}
+                {searchText ? 
+                  'No presets found matching your search.' : 
+                  'No presets created yet.\nTap "Add New Preset" to get started.'}
               </Text>
-              {!searchText && (
-                <TouchableOpacity
-                  style={GlobalStyles.secondaryButton}
-                  onPress={openCreateModal}
-                >
-                  <Text style={GlobalStyles.buttonText}>Create Your First Preset</Text>
-                </TouchableOpacity>
-              )}
             </View>
           ) : (
             filteredPresets.map((preset) => (
               <View key={preset.id} style={[GlobalStyles.card, styles.presetCard]}>
-                <TouchableOpacity
-                  style={styles.presetContent}
-                  onPress={() => usePreset(preset)}
-                >
-                  <Text style={GlobalStyles.cardTitle}>{preset.diagnosis}</Text>
+                <View style={styles.presetContent}>
+                  <Text style={styles.presetDiagnosis}>{preset.diagnosis}</Text>
                   <Text style={styles.medicationCount}>
                     {preset.medications.length} medication{preset.medications.length !== 1 ? 's' : ''}
                   </Text>
+                  
                   <View style={styles.medicationPreview}>
-                    {preset.medications.slice(0, 2).map((med, index) => (
-                      <Text key={index} style={styles.medicationText}>
-                        • {med.name} {med.dose}
+                    {preset.medications.slice(0, 3).map((medication, index) => (
+                      <Text key={medication.id || index} style={styles.medicationText}>
+                        • {medication.name} {medication.dose}
                       </Text>
                     ))}
-                    {preset.medications.length > 2 && (
+                    {preset.medications.length > 3 && (
                       <Text style={styles.moreText}>
-                        +{preset.medications.length - 2} more...
+                        +{preset.medications.length - 3} more...
                       </Text>
                     )}
                   </View>
-                </TouchableOpacity>
+                </View>
                 
-                <View style={styles.actionButtons}>
+                <View style={styles.presetActions}>
                   <TouchableOpacity
-                    style={[GlobalStyles.lightButton, styles.actionButton]}
-                    onPress={() => openEditModal(preset)}
+                    style={[GlobalStyles.secondaryButton, styles.actionButton]}
+                    onPress={() => editPreset(preset)}
                   >
-                    <Text style={GlobalStyles.buttonTextSmall}>✏️ Edit</Text>
+                    <Text style={GlobalStyles.buttonTextSmall}>Edit</Text>
                   </TouchableOpacity>
+                  
                   <TouchableOpacity
                     style={[GlobalStyles.dangerButton, styles.actionButton]}
-                    onPress={() => deletePreset(preset.id)}
+                    onPress={() => deletePreset(preset)}
                   >
-                    <Text style={GlobalStyles.buttonTextSmall}>🗑️ Delete</Text>
+                    <Text style={GlobalStyles.buttonTextSmall}>Delete</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -340,15 +314,7 @@ function PresetPrescriptionScreen({ navigation }) {
           )}
         </ScrollView>
 
-        {/* Add New Preset Button */}
-        <TouchableOpacity
-          style={[GlobalStyles.primaryButton, styles.addPresetButton]}
-          onPress={openCreateModal}
-        >
-          <Text style={GlobalStyles.buttonText}>+ Create New Preset</Text>
-        </TouchableOpacity>
-
-        {/* Create Preset Modal */}
+        {/* Add Preset Modal */}
         <Modal
           animationType="slide"
           transparent={true}
@@ -358,102 +324,94 @@ function PresetPrescriptionScreen({ navigation }) {
           <View style={GlobalStyles.modalOverlay}>
             <View style={[GlobalStyles.modalContent, styles.largeModal]}>
               <ScrollView showsVerticalScrollIndicator={false}>
-                <Text style={GlobalStyles.modalTitle}>Create New Preset</Text>
+                <Text style={GlobalStyles.modalTitle}>Add New Preset</Text>
                 
-                <Text style={GlobalStyles.inputLabel}>Diagnosis *</Text>
+                {/* Diagnosis Input */}
+                <Text style={GlobalStyles.inputLabel}>Diagnosis/Condition *</Text>
                 <TextInput
                   style={GlobalStyles.input}
                   value={diagnosis}
                   onChangeText={setDiagnosis}
-                  placeholder="e.g., Common Cold, Flu, Headache"
+                  placeholder="Enter diagnosis or condition"
                   placeholderTextColor={Colors.textLight}
                 />
 
                 {/* Medications Section */}
-                <Text style={[GlobalStyles.sectionTitle, styles.medicationsTitle]}>Medications</Text>
+                <Text style={[GlobalStyles.inputLabel, { marginTop: 20 }]}>Medications</Text>
                 
-                {/* Add/Edit Medication Form */}
+                {/* Medication Form */}
                 <View style={styles.medicationForm}>
-                  <Text style={GlobalStyles.inputLabel}>Medication Name *</Text>
                   <TextInput
                     style={GlobalStyles.input}
                     value={medicationName}
                     onChangeText={setMedicationName}
-                    placeholder="e.g., Paracetamol"
+                    placeholder="Medication name"
                     placeholderTextColor={Colors.textLight}
                   />
                   
-                  <Text style={GlobalStyles.inputLabel}>Dose *</Text>
                   <TextInput
                     style={GlobalStyles.input}
                     value={dose}
                     onChangeText={setDose}
-                    placeholder="e.g., 500mg, 10ml"
+                    placeholder="Dose (e.g., 500mg)"
                     placeholderTextColor={Colors.textLight}
                   />
                   
-                  <Text style={GlobalStyles.inputLabel}>Direction *</Text>
                   <TextInput
                     style={GlobalStyles.input}
                     value={direction}
                     onChangeText={setDirection}
-                    placeholder="e.g., Take every 6 hours"
+                    placeholder="Direction (e.g., Take twice daily)"
                     placeholderTextColor={Colors.textLight}
                   />
                   
-                  <Text style={GlobalStyles.inputLabel}>Quantity *</Text>
                   <TextInput
                     style={GlobalStyles.input}
                     value={quantity}
                     onChangeText={setQuantity}
-                    placeholder="e.g., 20 tablets, 100ml bottle"
+                    placeholder="Quantity (e.g., 30 tablets)"
                     placeholderTextColor={Colors.textLight}
                   />
                   
-                  <View style={styles.medicationButtonContainer}>
-                    {editingMedicationIndex >= 0 && (
-                      <TouchableOpacity
-                        style={[GlobalStyles.modalButton, styles.cancelEditButton]}
-                        onPress={clearMedicationForm}
-                      >
-                        <Text style={GlobalStyles.buttonText}>Cancel Edit</Text>
-                      </TouchableOpacity>
-                    )}
-                    <TouchableOpacity
-                      style={[GlobalStyles.modalButton, GlobalStyles.secondaryButton]}
-                      onPress={addMedication}
-                    >
-                      <Text style={GlobalStyles.buttonText}>
-                        {editingMedicationIndex >= 0 ? '✓ Update' : '+ Add'} Medication
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                  <TouchableOpacity
+                    style={[GlobalStyles.lightButton, styles.addMedicationButton]}
+                    onPress={addMedication}
+                  >
+                    <Text style={GlobalStyles.buttonText}>
+                      {editingMedicationIndex >= 0 ? 'Update Medication' : 'Add Medication'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
 
                 {/* Medications List */}
                 {medications.length > 0 && (
                   <View style={styles.medicationsList}>
-                    <Text style={styles.medicationsListTitle}>Added Medications:</Text>
+                    <Text style={styles.medicationsTitle}>Added Medications:</Text>
                     {medications.map((medication, index) => (
-                      <View key={medication.id} style={styles.medicationItem}>
+                      <View key={medication.id || index} style={styles.medicationItem}>
                         <View style={styles.medicationInfo}>
-                          <Text style={styles.medicationNameText}>{medication.name}</Text>
-                          <Text style={styles.medicationDetailsText}>
-                            {medication.dose} - {medication.direction} - {medication.quantity}
+                          <Text style={styles.medicationItemName}>
+                            {medication.name} {medication.dose}
+                          </Text>
+                          <Text style={styles.medicationItemDirection}>
+                            {medication.direction}
+                          </Text>
+                          <Text style={styles.medicationItemQuantity}>
+                            Qty: {medication.quantity}
                           </Text>
                         </View>
-                        <View style={styles.medicationActions}>
+                        <View style={styles.medicationItemActions}>
                           <TouchableOpacity
-                            style={styles.iconButton}
+                            style={[GlobalStyles.lightButton, styles.smallActionButton]}
                             onPress={() => editMedication(index)}
                           >
-                            <Text style={styles.iconText}>✏️</Text>
+                            <Text style={styles.smallButtonText}>Edit</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
-                            style={styles.iconButton}
+                            style={[GlobalStyles.dangerButton, styles.smallActionButton]}
                             onPress={() => deleteMedication(index)}
                           >
-                            <Text style={styles.iconText}>🗑️</Text>
+                            <Text style={styles.smallButtonText}>×</Text>
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -463,19 +421,19 @@ function PresetPrescriptionScreen({ navigation }) {
                 
                 <View style={GlobalStyles.modalButtonContainer}>
                   <TouchableOpacity
-                    style={[GlobalStyles.modalButton, styles.cancelButton]}
+                    style={[GlobalStyles.modalButton, GlobalStyles.lightButton]}
                     onPress={() => {
                       setModalVisible(false);
-                      clearMedicationForm();
+                      clearPresetForm();
                     }}
                   >
                     <Text style={GlobalStyles.buttonText}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[GlobalStyles.modalButton, GlobalStyles.primaryButton]}
-                    onPress={savePreset}
+                    onPress={addNewPreset}
                   >
-                    <Text style={GlobalStyles.buttonText}>Create Preset</Text>
+                    <Text style={GlobalStyles.buttonText}>Add Preset</Text>
                   </TouchableOpacity>
                 </View>
               </ScrollView>
@@ -495,100 +453,92 @@ function PresetPrescriptionScreen({ navigation }) {
               <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={GlobalStyles.modalTitle}>Edit Preset</Text>
                 
-                <Text style={GlobalStyles.inputLabel}>Diagnosis *</Text>
+                {/* Diagnosis Input */}
+                <Text style={GlobalStyles.inputLabel}>Diagnosis/Condition *</Text>
                 <TextInput
                   style={GlobalStyles.input}
                   value={diagnosis}
                   onChangeText={setDiagnosis}
-                  placeholder="e.g., Common Cold, Flu, Headache"
+                  placeholder="Enter diagnosis or condition"
                   placeholderTextColor={Colors.textLight}
                 />
 
                 {/* Medications Section */}
-                <Text style={[GlobalStyles.sectionTitle, styles.medicationsTitle]}>Medications</Text>
+                <Text style={[GlobalStyles.inputLabel, { marginTop: 20 }]}>Medications</Text>
                 
-                {/* Add/Edit Medication Form */}
+                {/* Medication Form */}
                 <View style={styles.medicationForm}>
-                  <Text style={GlobalStyles.inputLabel}>Medication Name *</Text>
                   <TextInput
                     style={GlobalStyles.input}
                     value={medicationName}
                     onChangeText={setMedicationName}
-                    placeholder="e.g., Paracetamol"
+                    placeholder="Medication name"
                     placeholderTextColor={Colors.textLight}
                   />
                   
-                  <Text style={GlobalStyles.inputLabel}>Dose *</Text>
                   <TextInput
                     style={GlobalStyles.input}
                     value={dose}
                     onChangeText={setDose}
-                    placeholder="e.g., 500mg, 10ml"
+                    placeholder="Dose (e.g., 500mg)"
                     placeholderTextColor={Colors.textLight}
                   />
                   
-                  <Text style={GlobalStyles.inputLabel}>Direction *</Text>
                   <TextInput
                     style={GlobalStyles.input}
                     value={direction}
                     onChangeText={setDirection}
-                    placeholder="e.g., Take every 6 hours"
+                    placeholder="Direction (e.g., Take twice daily)"
                     placeholderTextColor={Colors.textLight}
                   />
                   
-                  <Text style={GlobalStyles.inputLabel}>Quantity *</Text>
                   <TextInput
                     style={GlobalStyles.input}
                     value={quantity}
                     onChangeText={setQuantity}
-                    placeholder="e.g., 20 tablets, 100ml bottle"
+                    placeholder="Quantity (e.g., 30 tablets)"
                     placeholderTextColor={Colors.textLight}
                   />
                   
-                  <View style={styles.medicationButtonContainer}>
-                    {editingMedicationIndex >= 0 && (
-                      <TouchableOpacity
-                        style={[GlobalStyles.modalButton, styles.cancelEditButton]}
-                        onPress={clearMedicationForm}
-                      >
-                        <Text style={GlobalStyles.buttonText}>Cancel Edit</Text>
-                      </TouchableOpacity>
-                    )}
-                    <TouchableOpacity
-                      style={[GlobalStyles.modalButton, GlobalStyles.secondaryButton]}
-                      onPress={addMedication}
-                    >
-                      <Text style={GlobalStyles.buttonText}>
-                        {editingMedicationIndex >= 0 ? '✓ Update' : '+ Add'} Medication
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                  <TouchableOpacity
+                    style={[GlobalStyles.lightButton, styles.addMedicationButton]}
+                    onPress={addMedication}
+                  >
+                    <Text style={GlobalStyles.buttonText}>
+                      {editingMedicationIndex >= 0 ? 'Update Medication' : 'Add Medication'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
 
                 {/* Medications List */}
                 {medications.length > 0 && (
                   <View style={styles.medicationsList}>
-                    <Text style={styles.medicationsListTitle}>Added Medications:</Text>
+                    <Text style={styles.medicationsTitle}>Medications:</Text>
                     {medications.map((medication, index) => (
-                      <View key={medication.id} style={styles.medicationItem}>
+                      <View key={medication.id || index} style={styles.medicationItem}>
                         <View style={styles.medicationInfo}>
-                          <Text style={styles.medicationNameText}>{medication.name}</Text>
-                          <Text style={styles.medicationDetailsText}>
-                            {medication.dose} - {medication.direction} - {medication.quantity}
+                          <Text style={styles.medicationItemName}>
+                            {medication.name} {medication.dose}
+                          </Text>
+                          <Text style={styles.medicationItemDirection}>
+                            {medication.direction}
+                          </Text>
+                          <Text style={styles.medicationItemQuantity}>
+                            Qty: {medication.quantity}
                           </Text>
                         </View>
-                        <View style={styles.medicationActions}>
+                        <View style={styles.medicationItemActions}>
                           <TouchableOpacity
-                            style={styles.iconButton}
+                            style={[GlobalStyles.lightButton, styles.smallActionButton]}
                             onPress={() => editMedication(index)}
                           >
-                            <Text style={styles.iconText}>✏️</Text>
+                            <Text style={styles.smallButtonText}>Edit</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
-                            style={styles.iconButton}
+                            style={[GlobalStyles.dangerButton, styles.smallActionButton]}
                             onPress={() => deleteMedication(index)}
                           >
-                            <Text style={styles.iconText}>🗑️</Text>
+                            <Text style={styles.smallButtonText}>×</Text>
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -598,11 +548,11 @@ function PresetPrescriptionScreen({ navigation }) {
                 
                 <View style={GlobalStyles.modalButtonContainer}>
                   <TouchableOpacity
-                    style={[GlobalStyles.modalButton, styles.cancelButton]}
+                    style={[GlobalStyles.modalButton, GlobalStyles.lightButton]}
                     onPress={() => {
                       setEditModalVisible(false);
                       setSelectedPreset(null);
-                      clearMedicationForm();
+                      clearPresetForm();
                     }}
                   >
                     <Text style={GlobalStyles.buttonText}>Cancel</Text>
@@ -663,36 +613,49 @@ const styles = StyleSheet.create({
   },
 
   // Component Styles
+  addButton: {
+    paddingVertical: 14,
+    marginBottom: 16,
+  },
+
   presetsList: {
     flex: 1,
     marginBottom: 16,
   },
 
   presetCard: {
-    marginVertical: 6,
+    marginVertical: 4,
     borderLeftColor: Colors.primaryBlue,
-    borderLeftWidth: 5,
+    borderLeftWidth: 4,
   },
 
   presetContent: {
-    paddingBottom: 12,
+    flex: 1,
+    marginBottom: 12,
+  },
+
+  presetDiagnosis: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 4,
   },
 
   medicationCount: {
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.textSecondary,
     marginBottom: 8,
   },
 
   medicationPreview: {
     backgroundColor: Colors.backgroundGrey,
-    padding: 12,
+    padding: 10,
     borderRadius: 8,
   },
 
   medicationText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
+    fontSize: 12,
+    color: Colors.textPrimary,
     marginBottom: 2,
   },
 
@@ -703,23 +666,16 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  actionButtons: {
+  presetActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderGrey,
-    gap: 12,
+    gap: 8,
+    marginTop: 8,
   },
 
   actionButton: {
-    flex: 1,
     paddingVertical: 8,
-  },
-
-  addPresetButton: {
-    marginTop: 8,
-    marginBottom: 20,
+    paddingHorizontal: 12,
+    minWidth: 60,
   },
 
   // Modal Styles
@@ -728,84 +684,75 @@ const styles = StyleSheet.create({
     width: '95%',
   },
 
-  medicationsTitle: {
-    marginTop: 20,
+  medicationForm: {
+    gap: 10,
     marginBottom: 16,
   },
 
-  medicationForm: {
-    backgroundColor: Colors.backgroundGrey,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-  },
-
-  medicationButtonContainer: {
-    flexDirection: 'row',
-    marginTop: 16,
-    gap: 12,
-  },
-
-  cancelEditButton: {
-    backgroundColor: Colors.textGrey,
+  addMedicationButton: {
+    paddingVertical: 12,
+    marginTop: 8,
   },
 
   medicationsList: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
 
-  medicationsListTitle: {
-    fontSize: 16,
+  medicationsTitle: {
+    fontSize: 14,
     fontWeight: '600',
     color: Colors.textPrimary,
-    marginBottom: 12,
+    marginBottom: 8,
   },
 
   medicationItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: Colors.white,
+    alignItems: 'flex-start',
+    backgroundColor: Colors.backgroundGrey,
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.lightBlue,
   },
 
   medicationInfo: {
     flex: 1,
+    marginRight: 12,
   },
 
-  medicationNameText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-
-  medicationDetailsText: {
+  medicationItemName: {
     fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 2,
+  },
+
+  medicationItemDirection: {
+    fontSize: 12,
     color: Colors.textSecondary,
+    marginBottom: 2,
   },
 
-  medicationActions: {
+  medicationItemQuantity: {
+    fontSize: 12,
+    color: Colors.textLight,
+  },
+
+  medicationItemActions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 4,
   },
 
-  iconButton: {
-    padding: 8,
-    borderRadius: 6,
-    backgroundColor: Colors.backgroundGrey,
+  smallActionButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    minWidth: 40,
   },
 
-  iconText: {
-    fontSize: 16,
-  },
-
-  cancelButton: {
-    backgroundColor: Colors.textGrey,
+  smallButtonText: {
+    fontSize: 12,
+    color: Colors.white,
+    fontWeight: '600',
   },
 });
 
