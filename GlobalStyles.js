@@ -126,7 +126,7 @@ export const GlobalStyles = StyleSheet.create({
     elevation: 8,
   },
   
-  errorButton: {
+  dangerButton: {
     backgroundColor: Colors.error,
     paddingVertical: 14,
     paddingHorizontal: 20,
@@ -148,6 +148,12 @@ export const GlobalStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+
+  buttonTextSmall: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
   
   cardTitle: {
     fontSize: 18,
@@ -162,6 +168,14 @@ export const GlobalStyles = StyleSheet.create({
     marginBottom: 12,
   },
   
+  pageTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: Colors.textPrimary,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  
   headerText: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -174,6 +188,13 @@ export const GlobalStyles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.textPrimary,
     marginBottom: 12,
+  },
+
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 16,
   },
   
   bodyText: {

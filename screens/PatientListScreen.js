@@ -43,10 +43,12 @@ function PatientListScreen({ navigation }) {
   // New patient form fields
   const [newPatientName, setNewPatientName] = React.useState('');
   const [newPatientSurname, setNewPatientSurname] = React.useState('');
+  const [newPatientCellNumber, setNewPatientCellNumber] = React.useState('');
 
   // Edit patient form fields
   const [editPatientName, setEditPatientName] = React.useState('');
   const [editPatientSurname, setEditPatientSurname] = React.useState('');
+  const [editPatientCellNumber, setEditPatientCellNumber] = React.useState('');
 
   // Load patients from AsyncStorage on component mount
   React.useEffect(() => {
@@ -58,7 +60,17 @@ function PatientListScreen({ navigation }) {
       setLoading(true);
       const storedPatients = await AsyncStorage.getItem(PATIENTS_STORAGE_KEY);
       if (storedPatients) {
-        setPatients(JSON.parse(storedPatients));
+        const parsedPatients = JSON.parse(storedPatients);
+        // Add cellNumber field to existing patients if it doesn't exist
+        const updatedPatients = parsedPatients.map(patient => ({
+          ...patient,
+          cellNumber: patient.cellNumber || ''
+        }));
+        setPatients(updatedPatients);
+        // Save updated structure
+        if (parsedPatients.some(p => !p.hasOwnProperty('cellNumber'))) {
+          await savePatients(updatedPatients);
+        }
       } else {
         // Initialize with sample data if no data exists
         const samplePatients = [
@@ -66,18 +78,21 @@ function PatientListScreen({ navigation }) {
             id: 1, 
             name: 'John',
             surname: 'Doe',
+            cellNumber: '+27 82 123 4567',
             prescriptions: []
           },
           { 
             id: 2, 
             name: 'Jane',
             surname: 'Smith',
+            cellNumber: '+27 83 987 6543',
             prescriptions: []
           },
           { 
             id: 3, 
             name: 'Mike',
             surname: 'Johnson',
+            cellNumber: '+27 84 555 1234',
             prescriptions: []
           },
         ];
@@ -103,13 +118,15 @@ function PatientListScreen({ navigation }) {
 
   const filteredPatients = patients.filter(patient =>
     patient.name.toLowerCase().includes(searchText.toLowerCase()) ||
-    patient.surname.toLowerCase().includes(searchText.toLowerCase())
+    patient.surname.toLowerCase().includes(searchText.toLowerCase()) ||
+    (patient.cellNumber && patient.cellNumber.toLowerCase().includes(searchText.toLowerCase()))
   );
 
   const editPatient = (patient) => {
     setSelectedPatient(patient);
     setEditPatientName(patient.name);
     setEditPatientSurname(patient.surname);
+    setEditPatientCellNumber(patient.cellNumber || '');
     setEditModalVisible(true);
   };
 
@@ -133,12 +150,51 @@ function PatientListScreen({ navigation }) {
     );
   };
 
+  const validateCellNumber = (cellNumber) => {
+    // Basic validation for South African cell numbers
+    const cleanNumber = cellNumber.replace(/[^\d]/g, '');
+    if (cellNumber.trim() === '') return true; // Allow empty (optional field)
+    
+    // South African cell numbers typically start with +27 and have 11 digits total
+    // Or start with 0 and have 10 digits
+    const saPattern1 = /^(\+27|0027)?[6-8]\d{8}$/; // With country code
+    const saPattern2 = /^0[6-8]\d{8}$/; // Local format
+    
+    return saPattern1.test(cleanNumber) || saPattern2.test(cleanNumber);
+  };
+
+  const formatCellNumber = (cellNumber) => {
+    if (!cellNumber) return '';
+    
+    // Remove all non-digits
+    const cleaned = cellNumber.replace(/[^\d]/g, '');
+    
+    // If starts with 27, add +
+    if (cleaned.startsWith('27') && cleaned.length === 11) {
+      return `+27 ${cleaned.slice(2, 4)} ${cleaned.slice(4, 7)} ${cleaned.slice(7)}`;
+    }
+    
+    // If starts with 0, format as local number
+    if (cleaned.startsWith('0') && cleaned.length === 10) {
+      return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6)}`;
+    }
+    
+    return cellNumber; // Return as-is if doesn't match expected patterns
+  };
+
   const addNewPatient = async () => {
     if (newPatientName.trim() && newPatientSurname.trim()) {
+      // Validate cell number if provided
+      if (newPatientCellNumber.trim() && !validateCellNumber(newPatientCellNumber)) {
+        Alert.alert('Error', 'Please enter a valid South African cell number (e.g., +27 82 123 4567 or 082 123 4567)');
+        return;
+      }
+
       const newPatient = {
         id: Date.now(),
         name: newPatientName.trim(),
         surname: newPatientSurname.trim(),
+        cellNumber: formatCellNumber(newPatientCellNumber.trim()),
         prescriptions: []
       };
       const updatedPatients = [...patients, newPatient];
@@ -154,12 +210,19 @@ function PatientListScreen({ navigation }) {
 
   const updatePatient = async () => {
     if (editPatientName.trim() && editPatientSurname.trim()) {
+      // Validate cell number if provided
+      if (editPatientCellNumber.trim() && !validateCellNumber(editPatientCellNumber)) {
+        Alert.alert('Error', 'Please enter a valid South African cell number (e.g., +27 82 123 4567 or 082 123 4567)');
+        return;
+      }
+
       const updatedPatients = patients.map(patient => 
         patient.id === selectedPatient.id 
           ? {
               ...patient,
               name: editPatientName.trim(),
-              surname: editPatientSurname.trim()
+              surname: editPatientSurname.trim(),
+              cellNumber: formatCellNumber(editPatientCellNumber.trim())
             }
           : patient
       );
@@ -176,6 +239,13 @@ function PatientListScreen({ navigation }) {
   const clearNewPatientForm = () => {
     setNewPatientName('');
     setNewPatientSurname('');
+    setNewPatientCellNumber('');
+  };
+
+  const clearEditPatientForm = () => {
+    setEditPatientName('');
+    setEditPatientSurname('');
+    setEditPatientCellNumber('');
   };
 
   if (loading) {
@@ -197,7 +267,7 @@ function PatientListScreen({ navigation }) {
         {/* Search Bar */}
         <TextInput
           style={GlobalStyles.searchInput}
-          placeholder="Search by name or surname..."
+          placeholder="Search by name, surname, or cell number..."
           value={searchText}
           onChangeText={setSearchText}
           placeholderTextColor={Colors.textLight}
@@ -229,6 +299,12 @@ function PatientListScreen({ navigation }) {
               <View key={patient.id} style={[GlobalStyles.card, styles.patientCard]}>
                 <View style={styles.patientContent}>
                   <Text style={GlobalStyles.cardTitle}>{patient.name} {patient.surname}</Text>
+                  {patient.cellNumber && (
+                    <View style={styles.contactInfo}>
+                      <Text style={styles.contactLabel}>📱 Cell:</Text>
+                      <Text style={styles.contactValue}>{patient.cellNumber}</Text>
+                    </View>
+                  )}
                 </View>
                 
                 <View style={styles.actionButtons}>
@@ -275,7 +351,6 @@ function PatientListScreen({ navigation }) {
                 value={newPatientName}
                 onChangeText={setNewPatientName}
                 placeholder="Enter first name"
-                autoCapitalize="words"
                 placeholderTextColor={Colors.textLight}
               />
               
@@ -285,9 +360,21 @@ function PatientListScreen({ navigation }) {
                 value={newPatientSurname}
                 onChangeText={setNewPatientSurname}
                 placeholder="Enter surname"
-                autoCapitalize="words"
                 placeholderTextColor={Colors.textLight}
               />
+
+              <Text style={GlobalStyles.inputLabel}>Cell Number (Optional)</Text>
+              <TextInput
+                style={GlobalStyles.input}
+                value={newPatientCellNumber}
+                onChangeText={setNewPatientCellNumber}
+                placeholder="e.g., +27 82 123 4567 or 082 123 4567"
+                placeholderTextColor={Colors.textLight}
+                keyboardType="phone-pad"
+              />
+              <Text style={styles.helpText}>
+                💡 Add cell number for direct WhatsApp prescription sharing
+              </Text>
               
               <View style={GlobalStyles.modalButtonContainer}>
                 <TouchableOpacity
@@ -327,7 +414,6 @@ function PatientListScreen({ navigation }) {
                 value={editPatientName}
                 onChangeText={setEditPatientName}
                 placeholder="Enter first name"
-                autoCapitalize="words"
                 placeholderTextColor={Colors.textLight}
               />
               
@@ -337,9 +423,21 @@ function PatientListScreen({ navigation }) {
                 value={editPatientSurname}
                 onChangeText={setEditPatientSurname}
                 placeholder="Enter surname"
-                autoCapitalize="words"
                 placeholderTextColor={Colors.textLight}
               />
+
+              <Text style={GlobalStyles.inputLabel}>Cell Number (Optional)</Text>
+              <TextInput
+                style={GlobalStyles.input}
+                value={editPatientCellNumber}
+                onChangeText={setEditPatientCellNumber}
+                placeholder="e.g., +27 82 123 4567 or 082 123 4567"
+                placeholderTextColor={Colors.textLight}
+                keyboardType="phone-pad"
+              />
+              <Text style={styles.helpText}>
+                💡 Add cell number for direct WhatsApp prescription sharing
+              </Text>
               
               <View style={GlobalStyles.modalButtonContainer}>
                 <TouchableOpacity
@@ -347,6 +445,7 @@ function PatientListScreen({ navigation }) {
                   onPress={() => {
                     setEditModalVisible(false);
                     setSelectedPatient(null);
+                    clearEditPatientForm();
                   }}
                 >
                   <Text style={GlobalStyles.buttonText}>Cancel</Text>
@@ -421,6 +520,36 @@ const styles = StyleSheet.create({
   patientContent: {
     paddingBottom: 12,
   },
+
+  contactInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderGrey,
+  },
+
+  contactLabel: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginRight: 8,
+    fontWeight: '500',
+  },
+
+  contactValue: {
+    fontSize: 14,
+    color: Colors.textPrimary,
+    flex: 1,
+  },
+
+  helpText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+    marginTop: 4,
+    marginBottom: 12,
+  },
   
   actionButtons: {
     flexDirection: 'row',
@@ -451,7 +580,15 @@ export const PatientDataManager = {
   getPatients: async () => {
     try {
       const storedPatients = await AsyncStorage.getItem(PATIENTS_STORAGE_KEY);
-      return storedPatients ? JSON.parse(storedPatients) : [];
+      if (storedPatients) {
+        const parsedPatients = JSON.parse(storedPatients);
+        // Ensure all patients have cellNumber field
+        return parsedPatients.map(patient => ({
+          ...patient,
+          cellNumber: patient.cellNumber || ''
+        }));
+      }
+      return [];
     } catch (error) {
       console.error('Error getting patients:', error);
       return [];
