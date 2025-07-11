@@ -11,7 +11,7 @@ import {
   ActivityIndicator 
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { GlobalStyles, Colors } from './GlobalStyles';
+import { GlobalStyles, Colors } from '../GlobalStyles';
 
 const PRESETS_STORAGE_KEY = '@prescription_presets';
 

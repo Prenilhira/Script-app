@@ -71,98 +71,119 @@ export const GlobalStyles = StyleSheet.create({
     shadowColor: Colors.primaryBlue,
     shadowOffset: {
       width: 0,
-      height: 3,
+      height: 4,
     },
     shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 6,
+    shadowRadius: 8,
+    elevation: 8,
   },
   
   secondaryButton: {
     backgroundColor: Colors.secondaryBlue,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
     alignItems: 'center',
     shadowColor: Colors.secondaryBlue,
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 4,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   
   lightButton: {
     backgroundColor: Colors.lightBlue,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
     alignItems: 'center',
+    shadowColor: Colors.lightBlue,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   
   warningButton: {
     backgroundColor: Colors.warning,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
     alignItems: 'center',
+    shadowColor: Colors.warning,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   
-  dangerButton: {
+  errorButton: {
     backgroundColor: Colors.error,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
     alignItems: 'center',
+    shadowColor: Colors.error,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   
-  // Button Text Styles
+  // Text Styles
   buttonText: {
     color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
   },
   
-  buttonTextSmall: {
-    color: Colors.white,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  
-  // Text Styles
-  pageTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 24,
-    color: Colors.textPrimary,
-    letterSpacing: 0.5,
-  },
-  
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 16,
-    color: Colors.primaryBlue,
-  },
-  
   cardTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
+    color: Colors.primaryBlue,
     marginBottom: 8,
+  },
+  
+  cardSubtitle: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: 12,
+  },
+  
+  headerText: {
+    fontSize: 24,
+    fontWeight: 'bold',
     color: Colors.textPrimary,
+    marginBottom: 16,
+  },
+  
+  subHeaderText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 12,
   },
   
   bodyText: {
     fontSize: 16,
-    color: Colors.textSecondary,
-    lineHeight: 22,
+    color: Colors.textPrimary,
+    lineHeight: 24,
   },
   
-  smallText: {
-    fontSize: 14,
+  captionText: {
+    fontSize: 12,
     color: Colors.textLight,
   },
   

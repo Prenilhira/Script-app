@@ -11,7 +11,7 @@ import {
   ActivityIndicator 
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { GlobalStyles, Colors, TexturedBackgroundStyles } from './GlobalStyles';
+import { GlobalStyles, Colors, TexturedBackgroundStyles } from '../GlobalStyles';
 
 const PATIENTS_STORAGE_KEY = '@patients_data';
 

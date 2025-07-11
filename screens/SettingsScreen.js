@@ -11,7 +11,7 @@ import {
   ActivityIndicator 
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { GlobalStyles, Colors } from './GlobalStyles';
+import { GlobalStyles, Colors } from '../GlobalStyles'; // Fixed import path
 
 // Textured Background Component
 const TexturedBackground = ({ children }) => (
@@ -103,111 +103,129 @@ function SettingsScreen({ navigation }) {
     );
   };
 
+  const settingsOptions = [
+    {
+      id: 1,
+      title: 'Backup Data',
+      description: 'Backup your patient and prescription data',
+      icon: '💾',
+      action: handleBackupData,
+      buttonColor: GlobalStyles.primaryButton,
+    },
+    {
+      id: 2,
+      title: 'App Information',
+      description: 'View app version and details',
+      icon: 'ℹ️',
+      action: getAppInfo,
+      buttonColor: GlobalStyles.secondaryButton,
+    },
+    {
+      id: 3,
+      title: 'Delete All Data',
+      description: 'Permanently delete all stored data',
+      icon: '🗑️',
+      action: handleDeleteAllData,
+      buttonColor: GlobalStyles.errorButton,
+    },
+  ];
+
   return (
     <TexturedBackground>
-      <ScrollView style={GlobalStyles.padding} showsVerticalScrollIndicator={false}>
-        <Text style={GlobalStyles.pageTitle}>Settings</Text>
-
-        {/* Data Management Section */}
-        <View style={[GlobalStyles.card, styles.sectionCard]}>
-          <Text style={GlobalStyles.sectionTitle}>Data Management</Text>
-          
-          <TouchableOpacity
-            style={[GlobalStyles.secondaryButton, styles.settingButton]}
-            onPress={handleBackupData}
-          >
-            <Text style={GlobalStyles.buttonText}>📊 View Data Info</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[GlobalStyles.dangerButton, styles.settingButton, styles.dangerButton]}
-            onPress={handleDeleteAllData}
-          >
-            <Text style={GlobalStyles.buttonText}>🗑️ Delete All Data</Text>
-          </TouchableOpacity>
+      <ScrollView style={GlobalStyles.padding}>
+        {/* Header Section */}
+        <View style={styles.headerSection}>
+          <Text style={GlobalStyles.headerText}>Settings</Text>
+          <Text style={styles.subtitle}>Manage your app preferences and data</Text>
         </View>
 
-        {/* App Information Section */}
-        <View style={[GlobalStyles.card, styles.sectionCard]}>
-          <Text style={GlobalStyles.sectionTitle}>App Information</Text>
-          
-          <TouchableOpacity
-            style={[GlobalStyles.lightButton, styles.settingButton]}
-            onPress={getAppInfo}
-          >
-            <Text style={GlobalStyles.buttonText}>ℹ️ About This App</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Future Settings Placeholder */}
-        <View style={[GlobalStyles.card, styles.sectionCard, styles.placeholderCard]}>
-          <Text style={GlobalStyles.sectionTitle}>More Settings</Text>
-          <Text style={styles.placeholderText}>
-            Additional settings will be added here as needed.
-          </Text>
-        </View>
-
-        {/* Delete Confirmation Modal */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={deleteModalVisible}
-          onRequestClose={() => setDeleteModalVisible(false)}
-        >
-          <View style={GlobalStyles.modalOverlay}>
-            <View style={GlobalStyles.modalContent}>
-              <Text style={[GlobalStyles.modalTitle, styles.dangerTitle]}>⚠️ Delete All Data</Text>
-              
-              <Text style={styles.warningText}>
-                This will permanently delete ALL patient data and cannot be undone.
-              </Text>
-              
-              <Text style={styles.confirmInstructions}>
-                Type "delete" below to confirm:
-              </Text>
-              
-              <TextInput
-                style={[GlobalStyles.input, styles.confirmInput]}
-                value={deleteConfirmText}
-                onChangeText={setDeleteConfirmText}
-                placeholder="Type: delete"
-                placeholderTextColor={Colors.textLight}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              
-              <View style={GlobalStyles.modalButtonContainer}>
-                <TouchableOpacity
-                  style={[GlobalStyles.modalButton, styles.cancelButton]}
-                  onPress={() => {
-                    setDeleteModalVisible(false);
-                    setDeleteConfirmText('');
-                  }}
-                  disabled={isDeleting}
-                >
-                  <Text style={GlobalStyles.buttonText}>Cancel</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={[
-                    GlobalStyles.modalButton, 
-                    GlobalStyles.dangerButton,
-                    deleteConfirmText.toLowerCase().trim() !== 'delete' && styles.disabledButton
-                  ]}
-                  onPress={confirmDeleteAllData}
-                  disabled={isDeleting || deleteConfirmText.toLowerCase().trim() !== 'delete'}
-                >
-                  {isDeleting ? (
-                    <ActivityIndicator size="small" color={Colors.white} />
-                  ) : (
-                    <Text style={GlobalStyles.buttonText}>Delete All</Text>
-                  )}
-                </TouchableOpacity>
+        {/* Settings Options */}
+        <View style={styles.settingsContainer}>
+          {settingsOptions.map((option) => (
+            <TouchableOpacity
+              key={option.id}
+              style={[GlobalStyles.card, styles.settingCard]}
+              onPress={option.action}
+              activeOpacity={0.7}
+            >
+              <View style={styles.settingCardContent}>
+                <View style={styles.settingHeader}>
+                  <Text style={styles.settingIcon}>{option.icon}</Text>
+                  <Text style={GlobalStyles.cardTitle}>{option.title}</Text>
+                </View>
+                <Text style={styles.settingDescription}>{option.description}</Text>
               </View>
+              
+              <View style={styles.settingButton}>
+                <View style={[option.buttonColor, styles.actionButton]}>
+                  <Text style={GlobalStyles.buttonText}>Open</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* App Info Section */}
+        <View style={styles.infoSection}>
+          <Text style={styles.infoTitle}>About This App</Text>
+          <Text style={styles.infoText}>
+            This prescription management system is designed for Dr. P. Hira's personal medical practice. 
+            It helps streamline patient management and prescription creation.
+          </Text>
+          <Text style={styles.versionText}>Version 1.0.0</Text>
+        </View>
+      </ScrollView>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={deleteModalVisible}
+        onRequestClose={() => setDeleteModalVisible(false)}
+      >
+        <View style={GlobalStyles.modalOverlay}>
+          <View style={GlobalStyles.modalContent}>
+            <Text style={GlobalStyles.modalTitle}>⚠️ Delete All Data</Text>
+            <Text style={styles.warningText}>
+              This action will permanently delete ALL patient data, prescriptions, and settings. 
+              This cannot be undone.
+            </Text>
+            
+            <Text style={GlobalStyles.inputLabel}>
+              Type "delete" to confirm:
+            </Text>
+            <TextInput
+              style={GlobalStyles.input}
+              value={deleteConfirmText}
+              onChangeText={setDeleteConfirmText}
+              placeholder="Type 'delete' to confirm"
+              autoCapitalize="none"
+            />
+
+            <View style={GlobalStyles.modalButtonContainer}>
+              <TouchableOpacity
+                style={[GlobalStyles.modalButton, GlobalStyles.secondaryButton]}
+                onPress={() => setDeleteModalVisible(false)}
+                disabled={isDeleting}
+              >
+                <Text style={GlobalStyles.buttonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[GlobalStyles.modalButton, GlobalStyles.errorButton]}
+                onPress={confirmDeleteAllData}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator color={Colors.white} size="small" />
+                ) : (
+                  <Text style={GlobalStyles.buttonText}>Delete All</Text>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
-        </Modal>
-      </ScrollView>
+        </View>
+      </Modal>
     </TexturedBackground>
   );
 }
@@ -251,69 +269,105 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
 
-  // Component Styles
-  sectionCard: {
-    marginBottom: 20,
-    borderLeftColor: Colors.primaryBlue,
-    borderLeftWidth: 5,
+  // Header Styles
+  headerSection: {
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 30,
   },
 
-  settingButton: {
-    marginBottom: 12,
-    paddingVertical: 16,
-  },
-
-  dangerButton: {
+  subtitle: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    textAlign: 'center',
     marginTop: 8,
   },
 
-  placeholderCard: {
-    borderLeftColor: Colors.textLight,
-    opacity: 0.7,
+  // Settings Styles
+  settingsContainer: {
+    gap: 16,
+    marginBottom: 30,
   },
 
-  placeholderText: {
+  settingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    borderLeftColor: Colors.lightBlue,
+    borderLeftWidth: 4,
+    backgroundColor: Colors.white,
+  },
+
+  settingCardContent: {
+    flex: 1,
+  },
+
+  settingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+
+  settingIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+
+  settingDescription: {
     fontSize: 14,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+  },
+
+  settingButton: {
+    marginLeft: 16,
+  },
+
+  actionButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    minWidth: 80,
+  },
+
+  // Info Section Styles
+  infoSection: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 30,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.primaryBlue,
+  },
+
+  infoTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.primaryBlue,
+    marginBottom: 12,
+  },
+
+  infoText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    lineHeight: 22,
+    marginBottom: 16,
+  },
+
+  versionText: {
+    fontSize: 12,
     color: Colors.textLight,
     fontStyle: 'italic',
     textAlign: 'center',
-    paddingVertical: 20,
   },
 
   // Modal Styles
-  dangerTitle: {
-    color: Colors.error,
-  },
-
   warningText: {
-    fontSize: 16,
+    fontSize: 14,
     color: Colors.error,
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 22,
-    fontWeight: '500',
-  },
-
-  confirmInstructions: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    marginBottom: 12,
-    fontWeight: '600',
-  },
-
-  confirmInput: {
-    borderColor: Colors.error,
-    borderWidth: 2,
-    marginBottom: 20,
-  },
-
-  cancelButton: {
-    backgroundColor: Colors.textGrey,
-  },
-
-  disabledButton: {
-    backgroundColor: Colors.textLight,
-    opacity: 0.5,
   },
 });
 

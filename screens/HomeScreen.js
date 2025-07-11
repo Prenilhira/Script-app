@@ -1,7 +1,7 @@
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { GlobalStyles, Colors } from './GlobalStyles';
+import { GlobalStyles, Colors } from '../GlobalStyles'; // Fixed import path
 
 // Textured Background Component
 const TexturedBackground = ({ children }) => (
