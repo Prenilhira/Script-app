@@ -359,33 +359,4 @@ export const GlobalStyles = StyleSheet.create({
   },
 });
 
-// Textured Background Component Styles
-export const TexturedBackgroundStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.backgroundGrey,
-  },
-  
-  // CSS-like textured background using overlays
-  textureOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    opacity: 0.03,
-    backgroundColor: 'transparent',
-  },
-  
-  // Subtle pattern overlay
-  patternOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'transparent',
-  },
-});
-
 export default GlobalStyles;

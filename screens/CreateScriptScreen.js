@@ -7,16 +7,13 @@ import {
   TextInput, 
   TouchableOpacity, 
   View,
-  Modal,
   Platform,
-  Linking,
   ActivityIndicator,
-  Image
+  Share,
+  Dimensions
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { captureRef } from 'react-native-view-shot';
-import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GlobalStyles, Colors } from '../GlobalStyles';
 
@@ -42,6 +39,7 @@ function CreateScriptScreen({ navigation, route }) {
   const [age, setAge] = React.useState('');
   const [selectedPatient, setSelectedPatient] = React.useState(null);
   const [customPatientName, setCustomPatientName] = React.useState('');
+  const [patientAddress, setPatientAddress] = React.useState('');
   const [prescription, setPrescription] = React.useState('');
   const [selectedPreset, setSelectedPreset] = React.useState(null);
   const [customPrescription, setCustomPrescription] = React.useState('');
@@ -100,6 +98,10 @@ function CreateScriptScreen({ navigation, route }) {
   const handlePatientSelect = (patient) => {
     setSelectedPatient(patient);
     setShowPatientDropdown(false);
+    // Auto-fill patient address if available
+    if (patient.address) {
+      setPatientAddress(patient.address);
+    }
   };
 
   const handlePresetSelect = (preset) => {
@@ -145,17 +147,20 @@ function CreateScriptScreen({ navigation, route }) {
       const uri = await captureRef(prescriptionRef, {
         format: 'png',
         quality: 1.0,
+        result: 'tmpfile',
       });
 
-      // Share or save the prescription
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, {
-          mimeType: 'image/png',
-          dialogTitle: 'Share Prescription',
-        });
-      } else {
-        Alert.alert('Success', 'Prescription generated successfully!');
-      }
+      const patientName = useCustomPatient ? customPatientName : 
+                         selectedPatient ? `${selectedPatient.name} ${selectedPatient.surname}` : 'Patient';
+
+      // Share the prescription image
+      await Share.share({
+        url: uri,
+        title: 'Share Prescription',
+        message: `Prescription for ${patientName} - ${formatDate(date)}`,
+      });
+      
+      Alert.alert('Success', 'Prescription generated successfully!');
     } catch (error) {
       console.error('Error generating prescription:', error);
       Alert.alert('Error', 'Failed to generate prescription. Please try again.');
@@ -170,13 +175,15 @@ function CreateScriptScreen({ navigation, route }) {
       'Are you sure you want to clear all fields?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Clear', 
+        {
+          text: 'Clear',
           style: 'destructive',
           onPress: () => {
+            setDate(new Date());
             setAge('');
             setSelectedPatient(null);
             setCustomPatientName('');
+            setPatientAddress('');
             setPrescription('');
             setSelectedPreset(null);
             setCustomPrescription('');
@@ -188,15 +195,42 @@ function CreateScriptScreen({ navigation, route }) {
     );
   };
 
-  const getPatientName = () => {
-    if (useCustomPatient) {
-      return customPatientName;
-    }
-    return selectedPatient ? `${selectedPatient.name} ${selectedPatient.surname}` : '';
+  const renderPatientDropdown = () => {
+    if (!showPatientDropdown) return null;
+    
+    return (
+      <View style={styles.dropdownContainer}>
+        {patients.map((patient) => (
+          <TouchableOpacity
+            key={patient.id}
+            style={styles.dropdownItem}
+            onPress={() => handlePatientSelect(patient)}
+          >
+            <Text style={styles.dropdownItemText}>
+              {patient.name} {patient.surname}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
   };
 
-  const getPrescriptionText = () => {
-    return useCustomPrescription ? customPrescription : prescription;
+  const renderPresetDropdown = () => {
+    if (!showPresetDropdown) return null;
+    
+    return (
+      <View style={styles.dropdownContainer}>
+        {presets.map((preset) => (
+          <TouchableOpacity
+            key={preset.id}
+            style={styles.dropdownItem}
+            onPress={() => handlePresetSelect(preset)}
+          >
+            <Text style={styles.dropdownItemText}>{preset.diagnosis}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
   };
 
   return (
@@ -204,157 +238,196 @@ function CreateScriptScreen({ navigation, route }) {
       <ScrollView style={GlobalStyles.padding} showsVerticalScrollIndicator={false}>
         <Text style={GlobalStyles.pageTitle}>Create Prescription</Text>
 
-        {/* Form Fields */}
-        <View style={styles.formContainer}>
-          {/* Date Field */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>Date *</Text>
-            <TouchableOpacity 
-              style={styles.dateButton}
-              onPress={() => setShowDatePicker(true)}
+        {/* Date Section */}
+        <View style={styles.section}>
+          <Text style={styles.fieldLabel}>Date *</Text>
+          <TouchableOpacity 
+            style={styles.dateButton}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Text style={styles.dateText}>{formatDate(date)}</Text>
+          </TouchableOpacity>
+          
+          {showDatePicker && (
+            <DateTimePicker
+              value={date}
+              mode="date"
+              display="default"
+              onChange={onDateChange}
+            />
+          )}
+        </View>
+
+        {/* Age Section */}
+        <View style={styles.section}>
+          <Text style={styles.fieldLabel}>Age (Optional)</Text>
+          <TextInput
+            style={GlobalStyles.input}
+            value={age}
+            onChangeText={setAge}
+            placeholder="Enter patient age"
+            placeholderTextColor={Colors.textLight}
+            keyboardType="numeric"
+          />
+        </View>
+
+        {/* Patient Section */}
+        <View style={styles.section}>
+          <Text style={styles.fieldLabel}>Patient Name *</Text>
+          
+          <View style={styles.toggleContainer}>
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                !useCustomPatient && styles.toggleButtonActive
+              ]}
+              onPress={() => setUseCustomPatient(false)}
             >
-              <Text style={styles.dateText}>{formatDate(date)}</Text>
+              <Text style={[
+                styles.toggleText,
+                !useCustomPatient && styles.toggleTextActive
+              ]}>
+                Select Patient
+              </Text>
             </TouchableOpacity>
             
-            {showDatePicker && (
-              <DateTimePicker
-                testID="dateTimePicker"
-                value={date}
-                mode="date"
-                is24Hour={true}
-                display="default"
-                onChange={onDateChange}
-              />
-            )}
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                useCustomPatient && styles.toggleButtonActive
+              ]}
+              onPress={() => setUseCustomPatient(true)}
+            >
+              <Text style={[
+                styles.toggleText,
+                useCustomPatient && styles.toggleTextActive
+              ]}>
+                Custom Name
+              </Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Age Field */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>Age (Optional)</Text>
-            <TextInput
-              style={GlobalStyles.input}
-              value={age}
-              onChangeText={setAge}
-              placeholder="Enter patient age"
-              keyboardType="numeric"
-              placeholderTextColor={Colors.textLight}
-            />
-          </View>
-
-          {/* Patient Name Selection */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>Patient Name *</Text>
-            
-            <View style={styles.toggleContainer}>
-              <TouchableOpacity
-                style={[styles.toggleButton, !useCustomPatient && styles.toggleButtonActive]}
-                onPress={() => setUseCustomPatient(false)}
-              >
-                <Text style={[styles.toggleText, !useCustomPatient && styles.toggleTextActive]}>
-                  Select Patient
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.toggleButton, useCustomPatient && styles.toggleButtonActive]}
-                onPress={() => setUseCustomPatient(true)}
-              >
-                <Text style={[styles.toggleText, useCustomPatient && styles.toggleTextActive]}>
-                  Custom Name
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {!useCustomPatient ? (
+          {!useCustomPatient ? (
+            <View>
               <TouchableOpacity
                 style={styles.dropdownButton}
-                onPress={() => setShowPatientDropdown(true)}
+                onPress={() => setShowPatientDropdown(!showPatientDropdown)}
               >
                 <Text style={styles.dropdownText}>
-                  {selectedPatient 
-                    ? `${selectedPatient.name} ${selectedPatient.surname}` 
-                    : 'Select a patient'}
+                  {selectedPatient ? `${selectedPatient.name} ${selectedPatient.surname}` : 'Select a patient'}
                 </Text>
                 <Text style={styles.dropdownArrow}>▼</Text>
               </TouchableOpacity>
-            ) : (
-              <TextInput
-                style={GlobalStyles.input}
-                value={customPatientName}
-                onChangeText={setCustomPatientName}
-                placeholder="Enter patient name"
-                placeholderTextColor={Colors.textLight}
-              />
-            )}
+              {renderPatientDropdown()}
+            </View>
+          ) : (
+            <TextInput
+              style={GlobalStyles.input}
+              value={customPatientName}
+              onChangeText={setCustomPatientName}
+              placeholder="Enter patient name"
+              placeholderTextColor={Colors.textLight}
+            />
+          )}
+        </View>
+
+        {/* Address Section */}
+        <View style={styles.section}>
+          <Text style={styles.fieldLabel}>Patient Address</Text>
+          <TextInput
+            style={GlobalStyles.input}
+            value={patientAddress}
+            onChangeText={setPatientAddress}
+            placeholder="Enter patient address"
+            placeholderTextColor={Colors.textLight}
+            multiline
+            numberOfLines={2}
+          />
+        </View>
+
+        {/* Prescription Section */}
+        <View style={styles.section}>
+          <Text style={styles.fieldLabel}>Prescription Content *</Text>
+          
+          <View style={styles.toggleContainer}>
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                !useCustomPrescription && styles.toggleButtonActive
+              ]}
+              onPress={() => setUseCustomPrescription(false)}
+            >
+              <Text style={[
+                styles.toggleText,
+                !useCustomPrescription && styles.toggleTextActive
+              ]}>
+                Use Preset
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                useCustomPrescription && styles.toggleButtonActive
+              ]}
+              onPress={() => setUseCustomPrescription(true)}
+            >
+              <Text style={[
+                styles.toggleText,
+                useCustomPrescription && styles.toggleTextActive
+              ]}>
+                Custom
+              </Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Prescription Content */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>Prescription Content *</Text>
-            
-            <View style={styles.toggleContainer}>
-              <TouchableOpacity
-                style={[styles.toggleButton, !useCustomPrescription && styles.toggleButtonActive]}
-                onPress={() => setUseCustomPrescription(false)}
-              >
-                <Text style={[styles.toggleText, !useCustomPrescription && styles.toggleTextActive]}>
-                  Use Preset
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.toggleButton, useCustomPrescription && styles.toggleButtonActive]}
-                onPress={() => setUseCustomPrescription(true)}
-              >
-                <Text style={[styles.toggleText, useCustomPrescription && styles.toggleTextActive]}>
-                  Custom
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {!useCustomPrescription && (
+          {!useCustomPrescription && (
+            <View>
               <TouchableOpacity
                 style={styles.dropdownButton}
-                onPress={() => setShowPresetDropdown(true)}
+                onPress={() => setShowPresetDropdown(!showPresetDropdown)}
               >
                 <Text style={styles.dropdownText}>
                   {selectedPreset ? selectedPreset.diagnosis : 'Select a preset prescription'}
                 </Text>
                 <Text style={styles.dropdownArrow}>▼</Text>
               </TouchableOpacity>
+              {renderPresetDropdown()}
+            </View>
+          )}
+
+          <TextInput
+            style={[GlobalStyles.input, styles.prescriptionInput]}
+            value={useCustomPrescription ? customPrescription : prescription}
+            onChangeText={useCustomPrescription ? setCustomPrescription : setPrescription}
+            placeholder="Enter prescription details..."
+            multiline
+            numberOfLines={8}
+            textAlignVertical="top"
+            placeholderTextColor={Colors.textLight}
+          />
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actionButtons}>
+          <TouchableOpacity 
+            style={[GlobalStyles.primaryButton, styles.generateButton]}
+            onPress={generatePrescription}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={Colors.white} size="small" />
+            ) : (
+              <Text style={GlobalStyles.buttonText}>Generate Prescription</Text>
             )}
-
-            <TextInput
-              style={[GlobalStyles.input, styles.prescriptionInput]}
-              value={useCustomPrescription ? customPrescription : prescription}
-              onChangeText={useCustomPrescription ? setCustomPrescription : setPrescription}
-              placeholder="Enter prescription details..."
-              multiline
-              numberOfLines={8}
-              textAlignVertical="top"
-              placeholderTextColor={Colors.textLight}
-            />
-          </View>
-
-          {/* Action Buttons */}
-          <View style={styles.actionButtons}>
-            <TouchableOpacity 
-              style={[GlobalStyles.primaryButton, styles.generateButton]}
-              onPress={generatePrescription}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color={Colors.white} size="small" />
-              ) : (
-                <Text style={GlobalStyles.buttonText}>Generate Prescription</Text>
-              )}
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[GlobalStyles.lightButton, styles.clearButton]}
-              onPress={handleClear}
-            >
-              <Text style={GlobalStyles.buttonText}>Clear Form</Text>
-            </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[GlobalStyles.lightButton, styles.clearButton]}
+            onPress={handleClear}
+          >
+            <Text style={GlobalStyles.buttonText}>Clear Form</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Hidden Prescription Layout for Capture */}
@@ -363,16 +436,21 @@ function CreateScriptScreen({ navigation, route }) {
             {/* Header */}
             <View style={styles.headerSection}>
               <Text style={styles.practiceTitle}>DR P. HIRA INC.</Text>
-              <Text style={styles.practiceNumber}>PR. NO: 0860000123456</Text>
+              <Text style={styles.practiceNumber}>PR. NO: 0929484</Text>
               
               <View style={styles.contactInfo}>
                 <View style={styles.leftContact}>
-                  <Text style={styles.contactText}>📞 011 123 4567</Text>
-                  <Text style={styles.contactText}>📧 admin@drhira.co.za</Text>
+                  <Text style={styles.contactText}>Consulting rooms:</Text>
+                  <Text style={styles.contactText}>5/87 Dunswart Avenue</Text>
+                  <Text style={styles.contactText}>Dunswart, Boksburg, 1459</Text>
+                  <Text style={styles.contactText}>PO Box 18131</Text>
+                  <Text style={styles.contactText}>Actonville, Benoni, 1501</Text>
                 </View>
                 <View style={styles.rightContact}>
-                  <Text style={styles.contactText}>123 Medical Street</Text>
-                  <Text style={styles.contactText}>Johannesburg, 2000</Text>
+                  <Text style={styles.contactText}>Tel: 010 493 3544</Text>
+                  <Text style={styles.contactText}>Tel: 011 914 3093</Text>
+                  <Text style={styles.contactText}>Cell: 060 557 3625</Text>
+                  <Text style={styles.contactText}>e-mail: info@drhirainc.com</Text>
                 </View>
               </View>
             </View>
@@ -387,119 +465,57 @@ function CreateScriptScreen({ navigation, route }) {
                   </View>
                 </View>
                 
-                {age ? (
+                {age && (
                   <View style={styles.ageField}>
-                    <Text style={styles.patientFieldLabel}>Age:</Text>
+                    <Text style={styles.patientFieldLabel}>Age of Minor:</Text>
                     <View style={styles.underline}>
                       <Text style={styles.patientFieldValue}>{age}</Text>
                     </View>
                   </View>
-                ) : null}
+                )}
+              </View>
+              
+              <View style={[styles.patientInfoRow, styles.nameField]}>
+                <Text style={styles.patientFieldLabel}>Name:</Text>
+                <View style={styles.underline}>
+                  <Text style={styles.patientFieldValue}>
+                    {useCustomPatient ? customPatientName : 
+                     selectedPatient ? `${selectedPatient.name} ${selectedPatient.surname}` : ''}
+                  </Text>
+                </View>
               </View>
 
-              <View style={styles.nameField}>
-                <Text style={styles.patientFieldLabel}>Patient Name:</Text>
+              <View style={[styles.patientInfoRow, styles.nameField]}>
+                <Text style={styles.patientFieldLabel}>Address:</Text>
                 <View style={styles.underline}>
-                  <Text style={styles.patientFieldValue}>{getPatientName()}</Text>
+                  <Text style={styles.patientFieldValue}>{patientAddress}</Text>
                 </View>
               </View>
             </View>
 
             {/* Prescription Section */}
             <View style={styles.rxSection}>
-              <Text style={styles.rxLabel}>℞</Text>
-              <View style={styles.rxContentContainer}>
-                <Text style={styles.rxContent}>{getPrescriptionText()}</Text>
+              <Text style={styles.rxLabel}>Rx :</Text>
+              <View style={styles.prescriptionContent}>
+                <Text style={styles.prescriptionText}>
+                  {useCustomPrescription ? customPrescription : prescription}
+                </Text>
               </View>
             </View>
 
-            {/* Signature Section */}
-            <View style={styles.signatureMainSection}>
-              <Text style={styles.signedText}>_____________________</Text>
-              <Text style={styles.bottomDoctorName}>Dr. P. Hira</Text>
-              <Text style={styles.bottomDoctorQualification}>MBBCH(Wits)</Text>
+            {/* Footer */}
+            <View style={styles.footerSection}>
+              <View style={styles.doctorSignature}>
+                <Text style={styles.doctorName}>Dr P.Hira</Text>
+                <Text style={styles.doctorTitle}>MBBCH(Wits)</Text>
+              </View>
+              <View style={styles.doctorSignature}>
+                <Text style={styles.doctorName}>Dr. H.E. Foster</Text>
+                <Text style={styles.doctorTitle}>MBBCH(Wits)</Text>
+              </View>
             </View>
           </View>
         </View>
-
-        {/* Patient Selection Modal */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={showPatientDropdown}
-          onRequestClose={() => setShowPatientDropdown(false)}
-        >
-          <View style={GlobalStyles.modalOverlay}>
-            <View style={GlobalStyles.modalContent}>
-              <Text style={GlobalStyles.modalTitle}>Select Patient</Text>
-              
-              <ScrollView style={styles.modalList}>
-                {patients.map((patient) => (
-                  <TouchableOpacity
-                    key={patient.id}
-                    style={styles.modalItem}
-                    onPress={() => handlePatientSelect(patient)}
-                  >
-                    <Text style={styles.modalItemText}>
-                      {patient.name} {patient.surname}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-                
-                {patients.length === 0 && (
-                  <Text style={styles.emptyText}>No patients found</Text>
-                )}
-              </ScrollView>
-              
-              <TouchableOpacity
-                style={[GlobalStyles.lightButton, styles.modalCloseButton]}
-                onPress={() => setShowPatientDropdown(false)}
-              >
-                <Text style={GlobalStyles.buttonText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Preset Selection Modal */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={showPresetDropdown}
-          onRequestClose={() => setShowPresetDropdown(false)}
-        >
-          <View style={GlobalStyles.modalOverlay}>
-            <View style={GlobalStyles.modalContent}>
-              <Text style={GlobalStyles.modalTitle}>Select Preset Prescription</Text>
-              
-              <ScrollView style={styles.modalList}>
-                {presets.map((preset) => (
-                  <TouchableOpacity
-                    key={preset.id}
-                    style={styles.modalItem}
-                    onPress={() => handlePresetSelect(preset)}
-                  >
-                    <Text style={styles.modalItemText}>{preset.diagnosis}</Text>
-                    <Text style={styles.modalItemSubtext}>
-                      {preset.medications.length} medication{preset.medications.length !== 1 ? 's' : ''}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-                
-                {presets.length === 0 && (
-                  <Text style={styles.emptyText}>No presets found</Text>
-                )}
-              </ScrollView>
-              
-              <TouchableOpacity
-                style={[GlobalStyles.lightButton, styles.modalCloseButton]}
-                onPress={() => setShowPresetDropdown(false)}
-              >
-                <Text style={GlobalStyles.buttonText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
       </ScrollView>
     </TexturedBackground>
   );
@@ -545,13 +561,8 @@ const styles = StyleSheet.create({
   },
 
   // Form Styles
-  formContainer: {
-    gap: 16,
+  section: {
     marginBottom: 20,
-  },
-
-  fieldContainer: {
-    marginBottom: 8,
   },
 
   fieldLabel: {
@@ -633,6 +644,27 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
 
+  dropdownContainer: {
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.borderGrey,
+    borderRadius: 8,
+    marginBottom: 8,
+    maxHeight: 200,
+  },
+
+  dropdownItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderGrey,
+  },
+
+  dropdownItemText: {
+    fontSize: 14,
+    color: Colors.textPrimary,
+  },
+
   // Input Styles
   prescriptionInput: {
     minHeight: 120,
@@ -643,6 +675,7 @@ const styles = StyleSheet.create({
   actionButtons: {
     gap: 12,
     marginTop: 20,
+    marginBottom: 40,
   },
 
   generateButton: {
@@ -662,8 +695,8 @@ const styles = StyleSheet.create({
 
   prescriptionContainer: {
     backgroundColor: Colors.white,
-    width: 600,
-    padding: 30,
+    width: 800,
+    padding: 40,
   },
 
   // Header Section
@@ -675,7 +708,7 @@ const styles = StyleSheet.create({
   },
 
   practiceTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 8,
@@ -683,7 +716,7 @@ const styles = StyleSheet.create({
   },
 
   practiceNumber: {
-    fontSize: 14,
+    fontSize: 12,
     textAlign: 'center',
     marginBottom: 20,
     color: '#000',
@@ -704,7 +737,7 @@ const styles = StyleSheet.create({
   },
 
   contactText: {
-    fontSize: 12,
+    fontSize: 10,
     marginBottom: 3,
     color: '#000',
   },
@@ -735,7 +768,7 @@ const styles = StyleSheet.create({
   },
 
   patientFieldLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
     color: '#000',
     marginBottom: 5,
@@ -744,98 +777,63 @@ const styles = StyleSheet.create({
   underline: {
     borderBottomWidth: 1,
     borderBottomColor: '#000',
-    minHeight: 25,
     paddingBottom: 2,
-    justifyContent: 'flex-end',
+    minHeight: 20,
   },
 
   patientFieldValue: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#000',
-    minHeight: 20,
   },
 
   // Prescription Section
   rxSection: {
-    marginBottom: 60,
+    marginBottom: 50,
     paddingHorizontal: 10,
   },
 
   rxLabel: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: 'bold',
+    color: '#000',
     marginBottom: 15,
+  },
+
+  prescriptionContent: {
+    minHeight: 200,
+  },
+
+  prescriptionText: {
+    fontSize: 12,
     color: '#000',
+    lineHeight: 18,
   },
 
-  rxContentContainer: {
-    minHeight: 150,
-  },
-
-  rxContent: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#000',
-  },
-
-  // Signature Section
-  signatureMainSection: {
+  // Footer Section
+  footerSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingHorizontal: 10,
-    alignItems: 'flex-end',
+    borderTopWidth: 1,
+    borderTopColor: '#000',
+    paddingTop: 20,
   },
 
-  signedText: {
-    fontSize: 14,
-    fontWeight: '500',
+  doctorSignature: {
+    alignItems: 'center',
+    flex: 1,
+  },
+
+  doctorName: {
+    fontSize: 10,
     color: '#000',
-    marginBottom: 10,
+    marginTop: 30,
+    marginBottom: 2,
   },
 
-  bottomDoctorName: {
-    fontSize: 14,
-    fontWeight: 'bold',
+  doctorTitle: {
+    fontSize: 9,
     color: '#000',
-    marginBottom: 5,
-  },
-
-  bottomDoctorQualification: {
-    fontSize: 12,
-    color: '#000',
-  },
-
-  // Modal Styles
-  modalList: {
-    maxHeight: 300,
-    marginBottom: 20,
-  },
-
-  modalItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderGrey,
-  },
-
-  modalItemText: {
-    fontSize: 16,
-    color: Colors.textPrimary,
-  },
-
-  modalItemSubtext: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    marginTop: 4,
-  },
-
-  modalCloseButton: {
-    paddingVertical: 12,
-  },
-
-  emptyText: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    paddingVertical: 20,
   },
 });
 

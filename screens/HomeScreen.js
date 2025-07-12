@@ -1,6 +1,6 @@
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, ScrollView } from 'react-native';
 import { GlobalStyles, Colors } from '../GlobalStyles';
 
 // Textured Background Component
@@ -23,7 +23,7 @@ function HomeScreen({ navigation }) {
       description: 'Create a new prescription for patients',
       icon: '📝',
       route: 'CreateScript',
-      buttonStyle: GlobalStyles.primaryButton
+      color: Colors.primaryBlue
     },
     {
       id: 2,
@@ -31,7 +31,7 @@ function HomeScreen({ navigation }) {
       description: 'Manage diagnosis-based medication presets',
       icon: '💊',
       route: 'PresetPrescription',
-      buttonStyle: GlobalStyles.secondaryButton
+      color: Colors.secondaryBlue
     },
     {
       id: 3,
@@ -39,7 +39,7 @@ function HomeScreen({ navigation }) {
       description: 'Add, edit, and manage patient information',
       icon: '👥',
       route: 'PatientList',
-      buttonStyle: GlobalStyles.lightButton
+      color: Colors.lightBlue
     },
     {
       id: 4,
@@ -47,7 +47,7 @@ function HomeScreen({ navigation }) {
       description: 'App configuration and data management',
       icon: '⚙️',
       route: 'Settings',
-      buttonStyle: [GlobalStyles.lightButton, { backgroundColor: Colors.textGrey }]
+      color: Colors.textGrey
     }
   ];
 
@@ -58,45 +58,57 @@ function HomeScreen({ navigation }) {
   return (
     <TexturedBackground>
       <StatusBar style="dark" />
-      <View style={GlobalStyles.padding}>
-        {/* Header Section */}
-        <View style={styles.headerSection}>
-          <Text style={styles.appTitle}>Dr. P. Hira</Text>
-          <Text style={styles.appSubtitle}>Prescription Management System</Text>
-          <View style={styles.headerDivider} />
-        </View>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <View style={GlobalStyles.padding}>
+          {/* Header Section */}
+          <View style={styles.headerSection}>
+            <Text style={styles.appTitle}>Dr. P. Hira</Text>
+            <Text style={styles.appSubtitle}>Prescription Management System</Text>
+            <View style={styles.headerDivider} />
+          </View>
 
-        {/* Welcome Card */}
-        <View style={[GlobalStyles.card, styles.welcomeCard]}>
-          <Text style={styles.welcomeTitle}>Welcome Back, Doctor</Text>
-          <Text style={styles.welcomeText}>
-            Choose an option below to get started with patient care and prescription management.
-          </Text>
-        </View>
+          {/* Welcome Card */}
+          <View style={[GlobalStyles.card, styles.welcomeCard]}>
+            <Text style={styles.welcomeTitle}>Welcome Back, Doctor</Text>
+            <Text style={styles.welcomeText}>
+              Choose an option below to get started with patient care and prescription management.
+            </Text>
+          </View>
 
-        {/* Menu Items */}
-        <View style={styles.menuContainer}>
-          {menuItems.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={[GlobalStyles.card, styles.menuCard]}
-              onPress={() => navigateToScreen(item.route)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.menuItemContent}>
-                <View style={styles.menuItemHeader}>
-                  <Text style={styles.menuIcon}>{item.icon}</Text>
-                  <Text style={styles.menuTitle}>{item.title}</Text>
+          {/* Menu Items */}
+          <View style={styles.menuContainer}>
+            {menuItems.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={[GlobalStyles.card, styles.menuCard]}
+                onPress={() => navigateToScreen(item.route)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.menuItemContent}>
+                  <View style={styles.menuIconContainer}>
+                    <Text style={styles.menuIcon}>{item.icon}</Text>
+                  </View>
+                  
+                  <View style={styles.menuTextContainer}>
+                    <Text style={styles.menuTitle}>{item.title}</Text>
+                    <Text style={styles.menuDescription}>{item.description}</Text>
+                  </View>
+                  
+                  <View style={[styles.menuButton, { backgroundColor: item.color }]}>
+                    <Text style={styles.menuButtonText}>→</Text>
+                  </View>
                 </View>
-                <Text style={styles.menuDescription}>{item.description}</Text>
-                <View style={[item.buttonStyle, styles.menuButton]}>
-                  <Text style={GlobalStyles.buttonText}>Open</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Version Info */}
+          <View style={styles.versionContainer}>
+            <Text style={styles.versionText}>Version 1.0.0</Text>
+            <Text style={styles.versionSubtext}>Personal Medical Practice Management</Text>
+          </View>
         </View>
-      </View>
+      </ScrollView>
     </TexturedBackground>
   );
 }
@@ -140,6 +152,10 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
 
+  scrollView: {
+    flex: 1,
+  },
+
   // Header Styles
   headerSection: {
     alignItems: 'center',
@@ -148,37 +164,39 @@ const styles = StyleSheet.create({
   },
 
   appTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     color: Colors.primaryBlue,
-    marginBottom: 4,
+    marginBottom: 6,
+    textAlign: 'center',
   },
 
   appSubtitle: {
-    fontSize: 14,
+    fontSize: 16,
     color: Colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
+    paddingHorizontal: 20,
   },
 
   headerDivider: {
-    width: 60,
-    height: 3,
+    width: 80,
+    height: 4,
     backgroundColor: Colors.primaryBlue,
     borderRadius: 2,
   },
 
   // Welcome Card Styles
   welcomeCard: {
-    marginBottom: 20,
-    borderLeftColor: Colors.primaryBlue,
     borderLeftWidth: 4,
+    borderLeftColor: Colors.primaryBlue,
+    marginBottom: 20,
   },
 
   welcomeTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
-    color: Colors.primaryBlue,
+    color: Colors.textPrimary,
     marginBottom: 8,
   },
 
@@ -191,50 +209,90 @@ const styles = StyleSheet.create({
   // Menu Styles
   menuContainer: {
     gap: 12,
-    marginBottom: 20,
   },
 
   menuCard: {
+    paddingVertical: 20,
+    paddingHorizontal: 16,
     borderLeftWidth: 4,
-    borderLeftColor: Colors.lightBlue,
+    borderLeftColor: Colors.accentBlue,
   },
 
   menuItemContent: {
-    flex: 1,
-  },
-
-  menuItemHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    gap: 16,
+  },
+
+  menuIconContainer: {
+    width: 50,
+    height: 50,
+    backgroundColor: Colors.backgroundGrey,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   menuIcon: {
-    fontSize: 20,
-    marginRight: 12,
+    fontSize: 24,
+  },
+
+  menuTextContainer: {
+    flex: 1,
   },
 
   menuTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: Colors.textPrimary,
-    flex: 1,
+    marginBottom: 4,
   },
 
   menuDescription: {
     fontSize: 13,
     color: Colors.textSecondary,
     lineHeight: 18,
-    marginBottom: 12,
   },
 
   menuButton: {
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
+    minWidth: 70,
     alignItems: 'center',
-    alignSelf: 'flex-end',
-    minWidth: 80,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+
+  menuButtonText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  // Version Info
+  versionContainer: {
+    alignItems: 'center',
+    marginTop: 40,
+    marginBottom: 20,
+  },
+
+  versionText: {
+    fontSize: 12,
+    color: Colors.textLight,
+    marginBottom: 4,
+  },
+
+  versionSubtext: {
+    fontSize: 11,
+    color: Colors.textLight,
+    textAlign: 'center',
   },
 });
 

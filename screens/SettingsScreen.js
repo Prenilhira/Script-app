@@ -5,13 +5,15 @@ import {
   ScrollView, 
   StyleSheet, 
   Text, 
-  TextInput, 
   TouchableOpacity, 
   View,
   ActivityIndicator 
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GlobalStyles, Colors } from '../GlobalStyles';
+
+const PATIENTS_STORAGE_KEY = '@patients_data';
+const PRESETS_STORAGE_KEY = '@prescription_presets';
 
 // Textured Background Component
 const TexturedBackground = ({ children }) => (
@@ -27,39 +29,55 @@ const TexturedBackground = ({ children }) => (
 
 function SettingsScreen({ navigation }) {
   const [deleteModalVisible, setDeleteModalVisible] = React.useState(false);
-  const [deleteConfirmText, setDeleteConfirmText] = React.useState('');
-  const [isDeleting, setIsDeleting] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+
+  const handleBackupData = async () => {
+    try {
+      setLoading(true);
+      const patients = await AsyncStorage.getItem(PATIENTS_STORAGE_KEY);
+      const presets = await AsyncStorage.getItem(PRESETS_STORAGE_KEY);
+      
+      const patientCount = patients ? JSON.parse(patients).length : 0;
+      const presetCount = presets ? JSON.parse(presets).length : 0;
+      
+      if (patientCount > 0 || presetCount > 0) {
+        const message = `Backup Data Summary:\n\n• ${patientCount} patient${patientCount !== 1 ? 's' : ''}\n• ${presetCount} preset${presetCount !== 1 ? 's' : ''}\n\nNote: This is a demonstration of backup functionality. In a real app, this would export or sync your data to cloud storage.`;
+        Alert.alert('Data Backup', message);
+      } else {
+        Alert.alert('No Data', 'No data found to backup.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to check data for backup.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getAppInfo = () => {
+    Alert.alert(
+      'App Information',
+      'Dr. P. Hira Prescription App\nVersion: 1.0.0\nPersonal Use Edition\n\nDeveloped for efficient patient management and prescription creation.\n\nThis app helps streamline medical practice workflows while maintaining patient data security and privacy.',
+      [{ text: 'OK', style: 'default' }]
+    );
+  };
 
   const handleDeleteAllData = () => {
     setDeleteModalVisible(true);
-    setDeleteConfirmText('');
   };
 
   const confirmDeleteAllData = async () => {
-    if (deleteConfirmText.toLowerCase().trim() !== 'delete') {
-      Alert.alert('Error', 'Please type "delete" to confirm');
-      return;
-    }
-
-    setIsDeleting(true);
-    
     try {
-      // Delete all stored data
-      await AsyncStorage.multiRemove([
-        '@patients_data', 
-        '@prescription_presets'
-      ]);
-      
+      setLoading(true);
+      await AsyncStorage.multiRemove([PATIENTS_STORAGE_KEY, PRESETS_STORAGE_KEY]);
       setDeleteModalVisible(false);
-      setDeleteConfirmText('');
-      
       Alert.alert(
-        'Success', 
-        'All data has been deleted successfully. The app will restart.',
+        'Data Deleted', 
+        'All data has been permanently deleted.',
         [
           {
             text: 'OK',
             onPress: () => {
+              // Optionally navigate back to home or refresh the app
               navigation.reset({
                 index: 0,
                 routes: [{ name: 'Home' }],
@@ -69,50 +87,41 @@ function SettingsScreen({ navigation }) {
         ]
       );
     } catch (error) {
-      console.error('Error deleting data:', error);
       Alert.alert('Error', 'Failed to delete data. Please try again.');
     } finally {
-      setIsDeleting(false);
+      setLoading(false);
     }
   };
 
-  const handleBackupData = async () => {
-    try {
-      const patients = await AsyncStorage.getItem('@patients_data');
-      const presets = await AsyncStorage.getItem('@prescription_presets');
-      
-      let dataCount = 0;
-      let message = 'Data found:\n';
-      
-      if (patients) {
-        const patientCount = JSON.parse(patients).length;
-        dataCount += patientCount;
-        message += `• ${patientCount} patients\n`;
-      }
-      
-      if (presets) {
-        const presetCount = JSON.parse(presets).length;
-        dataCount += presetCount;
-        message += `• ${presetCount} prescription presets\n`;
-      }
-      
-      if (dataCount > 0) {
-        message += '\nBackup feature coming soon!';
-        Alert.alert('Data Backup', message);
-      } else {
-        Alert.alert('No Data', 'No data found to backup.');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to check data for backup.');
+  const settingsItems = [
+    {
+      id: 1,
+      title: 'Backup Data',
+      description: 'Backup your patient and prescription data',
+      icon: '💾',
+      action: handleBackupData,
+      buttonText: 'Open',
+      buttonStyle: GlobalStyles.primaryButton
+    },
+    {
+      id: 2,
+      title: 'App Information',
+      description: 'View app version and details',
+      icon: 'ℹ️',
+      action: getAppInfo,
+      buttonText: 'Open',
+      buttonStyle: GlobalStyles.secondaryButton
+    },
+    {
+      id: 3,
+      title: 'Delete All Data',
+      description: 'Permanently delete all stored data',
+      icon: '🗑️',
+      action: handleDeleteAllData,
+      buttonText: 'Delete',
+      buttonStyle: GlobalStyles.dangerButton
     }
-  };
-
-  const getAppInfo = () => {
-    Alert.alert(
-      'App Information',
-      'Dr. P. Hira Prescription App\nVersion: 1.0.0\nPersonal Use Edition\n\nDeveloped for efficient patient management and prescription creation.\n\nThis app helps streamline medical practice workflows while maintaining patient data security.'
-    );
-  };
+  ];
 
   return (
     <TexturedBackground>
@@ -122,68 +131,34 @@ function SettingsScreen({ navigation }) {
 
         {/* Settings Options */}
         <View style={styles.settingsContainer}>
-          {/* Backup Data */}
-          <View style={[GlobalStyles.card, styles.settingCard]}>
-            <View style={styles.settingCardContent}>
-              <View style={styles.settingHeader}>
-                <Text style={styles.settingIcon}>💾</Text>
-                <Text style={GlobalStyles.cardTitle}>Backup Data</Text>
+          {settingsItems.map((item) => (
+            <View key={item.id} style={[GlobalStyles.card, styles.settingCard]}>
+              <View style={styles.settingCardContent}>
+                <View style={styles.settingHeader}>
+                  <View style={styles.settingIconContainer}>
+                    <Text style={styles.settingIcon}>{item.icon}</Text>
+                  </View>
+                  <View style={styles.settingTextContainer}>
+                    <Text style={styles.settingTitle}>{item.title}</Text>
+                    <Text style={styles.settingDescription}>{item.description}</Text>
+                  </View>
+                </View>
               </View>
-              <Text style={styles.settingDescription}>
-                Backup your patient and prescription data
-              </Text>
-            </View>
-            <View style={styles.settingButton}>
-              <TouchableOpacity
-                style={[GlobalStyles.primaryButton, styles.actionButton]}
-                onPress={handleBackupData}
-              >
-                <Text style={GlobalStyles.buttonText}>Open</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* App Information */}
-          <View style={[GlobalStyles.card, styles.settingCard]}>
-            <View style={styles.settingCardContent}>
-              <View style={styles.settingHeader}>
-                <Text style={styles.settingIcon}>ℹ️</Text>
-                <Text style={GlobalStyles.cardTitle}>App Information</Text>
+              <View style={styles.settingButton}>
+                <TouchableOpacity
+                  style={[item.buttonStyle, styles.actionButton]}
+                  onPress={item.action}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color={Colors.white} />
+                  ) : (
+                    <Text style={GlobalStyles.buttonText}>{item.buttonText}</Text>
+                  )}
+                </TouchableOpacity>
               </View>
-              <Text style={styles.settingDescription}>
-                View app version and details
-              </Text>
             </View>
-            <View style={styles.settingButton}>
-              <TouchableOpacity
-                style={[GlobalStyles.secondaryButton, styles.actionButton]}
-                onPress={getAppInfo}
-              >
-                <Text style={GlobalStyles.buttonText}>Open</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Delete All Data */}
-          <View style={[GlobalStyles.card, styles.settingCard]}>
-            <View style={styles.settingCardContent}>
-              <View style={styles.settingHeader}>
-                <Text style={styles.settingIcon}>🗑️</Text>
-                <Text style={GlobalStyles.cardTitle}>Delete All Data</Text>
-              </View>
-              <Text style={styles.settingDescription}>
-                Permanently delete all stored data
-              </Text>
-            </View>
-            <View style={styles.settingButton}>
-              <TouchableOpacity
-                style={[GlobalStyles.dangerButton, styles.actionButton]}
-                onPress={handleDeleteAllData}
-              >
-                <Text style={GlobalStyles.buttonText}>Delete</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          ))}
         </View>
 
         {/* About Section */}
@@ -194,7 +169,14 @@ function SettingsScreen({ navigation }) {
             It helps streamline patient management and prescription creation while maintaining the highest 
             standards of data security and privacy.
           </Text>
-          <Text style={styles.versionText}>Version 1.0.0</Text>
+          <Text style={styles.infoText}>
+            The app provides a complete solution for managing patient information, creating standardized 
+            prescription presets, and generating professional prescription documents.
+          </Text>
+          <View style={styles.versionContainer}>
+            <Text style={styles.versionText}>Version 1.0.0</Text>
+            <Text style={styles.versionSubtext}>Personal Medical Practice Edition</Text>
+          </View>
         </View>
 
         {/* Delete Confirmation Modal */}
@@ -208,40 +190,33 @@ function SettingsScreen({ navigation }) {
             <View style={GlobalStyles.modalContent}>
               <Text style={GlobalStyles.modalTitle}>Delete All Data</Text>
               
+              <View style={styles.warningContainer}>
+                <Text style={styles.warningIcon}>⚠️</Text>
+                <Text style={styles.warningTitle}>This action cannot be undone!</Text>
+              </View>
+              
               <Text style={styles.warningText}>
-                ⚠️ This action cannot be undone!
-                
                 This will permanently delete all patient records, 
                 prescription presets, and app data.
                 
-                Type "delete" below to confirm:
+                {'\n\n'}Are you sure you want to continue?
               </Text>
-              
-              <TextInput
-                style={GlobalStyles.input}
-                value={deleteConfirmText}
-                onChangeText={setDeleteConfirmText}
-                placeholder="Type 'delete' to confirm"
-                placeholderTextColor={Colors.textLight}
-              />
               
               <View style={GlobalStyles.modalButtonContainer}>
                 <TouchableOpacity
                   style={[GlobalStyles.modalButton, GlobalStyles.lightButton]}
-                  onPress={() => {
-                    setDeleteModalVisible(false);
-                    setDeleteConfirmText('');
-                  }}
+                  onPress={() => setDeleteModalVisible(false)}
+                  disabled={loading}
                 >
                   <Text style={GlobalStyles.buttonText}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[GlobalStyles.modalButton, GlobalStyles.dangerButton]}
                   onPress={confirmDeleteAllData}
-                  disabled={isDeleting}
+                  disabled={loading}
                 >
-                  {isDeleting ? (
-                    <ActivityIndicator color={Colors.white} size="small" />
+                  {loading ? (
+                    <ActivityIndicator size="small" color={Colors.white} />
                   ) : (
                     <Text style={GlobalStyles.buttonText}>Delete All</Text>
                   )}
@@ -294,43 +269,62 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
 
-  // Header Styles
+  // Component Styles
   subtitle: {
-    fontSize: 14,
+    fontSize: 16,
     color: Colors.textSecondary,
     textAlign: 'center',
-    marginTop: -10,
     marginBottom: 24,
+    lineHeight: 22,
   },
 
-  // Settings Styles
   settingsContainer: {
-    gap: 12,
-    marginBottom: 24,
+    gap: 16,
+    marginBottom: 32,
   },
 
   settingCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 20,
     paddingHorizontal: 16,
-    borderLeftColor: Colors.lightBlue,
     borderLeftWidth: 4,
+    borderLeftColor: Colors.accentBlue,
   },
 
   settingCardContent: {
     flex: 1,
+    marginRight: 16,
   },
 
   settingHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    gap: 16,
+  },
+
+  settingIconContainer: {
+    width: 50,
+    height: 50,
+    backgroundColor: Colors.backgroundGrey,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   settingIcon: {
-    fontSize: 20,
-    marginRight: 12,
+    fontSize: 24,
+  },
+
+  settingTextContainer: {
+    flex: 1,
+  },
+
+  settingTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 4,
   },
 
   settingDescription: {
@@ -340,7 +334,7 @@ const styles = StyleSheet.create({
   },
 
   settingButton: {
-    marginLeft: 12,
+    minWidth: 80,
   },
 
   actionButton: {
@@ -349,44 +343,84 @@ const styles = StyleSheet.create({
     minWidth: 70,
   },
 
-  // Info Section Styles
+  // About Section
   infoSection: {
     backgroundColor: Colors.white,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    padding: 20,
+    marginBottom: 20,
     borderLeftWidth: 4,
     borderLeftColor: Colors.primaryBlue,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
 
   infoTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: Colors.primaryBlue,
-    marginBottom: 8,
+    marginBottom: 16,
+    textAlign: 'center',
   },
 
   infoText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
+    fontSize: 14,
+    color: Colors.textPrimary,
     lineHeight: 20,
+    textAlign: 'center',
     marginBottom: 12,
   },
 
+  versionContainer: {
+    alignItems: 'center',
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderGrey,
+  },
+
   versionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primaryBlue,
+    marginBottom: 4,
+  },
+
+  versionSubtext: {
     fontSize: 12,
-    color: Colors.textLight,
-    fontStyle: 'italic',
+    color: Colors.textSecondary,
+  },
+
+  // Warning Modal Styles
+  warningContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+
+  warningIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+
+  warningTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.error,
     textAlign: 'center',
   },
 
-  // Modal Styles
   warningText: {
     fontSize: 14,
-    color: Colors.error,
+    color: Colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 16,
     lineHeight: 20,
+    marginBottom: 20,
   },
 });
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import { StatusBar } from 'expo-status-bar';
 import { Colors } from './GlobalStyles';
 
 import CreateScriptScreen from './screens/CreateScriptScreen';
@@ -14,44 +15,73 @@ const Stack = createStackNavigator();
 function App() {
   return (
     <NavigationContainer>
+      <StatusBar style="light" backgroundColor={Colors.primaryBlue} />
       <Stack.Navigator 
         initialRouteName="Home"
         screenOptions={{
           headerStyle: {
             backgroundColor: Colors.primaryBlue,
+            elevation: 4,
+            shadowOpacity: 0.3,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowRadius: 4,
           },
           headerTintColor: Colors.white,
           headerTitleStyle: {
             fontWeight: '600',
-            fontSize: 16,
+            fontSize: 18,
           },
           headerTitleAlign: 'center',
+          headerBackTitleVisible: false,
+          cardStyle: { 
+            backgroundColor: Colors.backgroundGrey 
+          },
         }}
       >
         <Stack.Screen 
           name="Home" 
           component={HomeScreen} 
-          options={{ title: 'Prescription App' }}
+          options={{ 
+            title: 'Prescription App',
+            headerStyle: {
+              backgroundColor: Colors.primaryBlue,
+              elevation: 0,
+              shadowOpacity: 0,
+            },
+          }}
         />
         <Stack.Screen 
           name="CreateScript" 
           component={CreateScriptScreen} 
-          options={{ title: 'Create New Script' }}
+          options={{ 
+            title: 'Create New Script',
+            headerBackTitle: 'Back',
+          }}
         />
         <Stack.Screen 
           name="PresetPrescription" 
           component={PresetPrescriptionScreen} 
-          options={{ title: 'Preset Prescriptions' }}
+          options={{ 
+            title: 'Preset Prescriptions',
+            headerBackTitle: 'Back',
+          }}
         />
         <Stack.Screen 
           name="PatientList" 
           component={PatientListScreen} 
-          options={{ title: 'Patient List' }}
+          options={{ 
+            title: 'Patient List',
+            headerBackTitle: 'Back',
+          }}
         />
         <Stack.Screen 
           name="Settings" 
           component={SettingsScreen} 
-          options={{ title: 'Settings' }}
+          options={{ 
+            title: 'Settings',
+            headerBackTitle: 'Back',
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>
