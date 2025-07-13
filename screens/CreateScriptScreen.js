@@ -45,6 +45,7 @@ function CreateScriptScreen({ navigation, route }) {
   const [prescription, setPrescription] = React.useState('');
   const [selectedPreset, setSelectedPreset] = React.useState(null);
   const [customPrescription, setCustomPrescription] = React.useState('');
+  const [repeats, setRepeats] = React.useState(0);
   
   // Dropdown states
   const [showPatientDropdown, setShowPatientDropdown] = React.useState(false);
@@ -83,12 +84,11 @@ function CreateScriptScreen({ navigation, route }) {
   };
 
   const formatDate = (date) => {
-    const options = { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    };
-    return date.toLocaleDateString('en-US', options);
+    // Format as DD/MM/YYYY for prescription template
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
   };
 
   const onDateChange = (event, selectedDate) => {
@@ -141,9 +141,7 @@ function CreateScriptScreen({ navigation, route }) {
     setLoading(true);
     
     try {
-      console.log('Showing prescription template...');
-      
-      // Just show the preview modal with template
+      // Show the preview modal with template
       setShowPreviewModal(true);
       setLoading(false);
       
@@ -173,6 +171,7 @@ function CreateScriptScreen({ navigation, route }) {
             setCustomPrescription('');
             setUseCustomPatient(false);
             setUseCustomPrescription(false);
+            setRepeats(0);
           }
         }
       ]
@@ -219,43 +218,110 @@ function CreateScriptScreen({ navigation, route }) {
     );
   };
 
-  const renderSimpleTemplate = () => {
+  const renderPrescriptionTemplate = () => {
+    const patientName = useCustomPatient ? customPatientName : 
+      (selectedPatient ? `${selectedPatient.name} ${selectedPatient.surname}` : '');
+    const prescriptionText = useCustomPrescription ? customPrescription : prescription;
+
     return (
-      <View style={styles.templateContainer}>
-        <Text style={styles.debugText}>🔍 Debugging Prescription Template</Text>
-        
-        {/* Test with a simple placeholder first */}
-        <View style={styles.placeholderTemplate}>
-          <Text style={styles.placeholderText}>DR P. HIRA INC.</Text>
-          <Text style={styles.placeholderText}>PR. NO 0929484</Text>
-          <Text style={styles.placeholderSubtext}>This is a placeholder template</Text>
-          <Text style={styles.placeholderSubtext}>If you see this, the container works</Text>
-          <Text style={styles.placeholderSubtext}>✅ GREEN BOX SHOULD BE VISIBLE</Text>
+      <View style={styles.prescriptionFormContainer}>
+        {/* Header Section */}
+        <View style={styles.prescriptionHeader}>
+          <View style={styles.headerTopRow}>
+            <View style={styles.doctorInfo}>
+              <Text style={styles.doctorName}>DR P. HIRA INC.</Text>
+              <Text style={styles.practiceNumber}>PR. NO 0929484</Text>
+            </View>
+          </View>
+          
+          <View style={styles.contactInfoRow}>
+            <View style={styles.leftContactInfo}>
+              <Text style={styles.contactText}>Consulting rooms:</Text>
+              <Text style={styles.contactText}>5/87 Dunswart</Text>
+              <Text style={styles.contactText}>Apartments</Text>
+              <Text style={styles.contactText}>Dunswart, Boksburg,</Text>
+              <Text style={styles.contactText}>1459</Text>
+              <Text style={styles.contactText}>PO Box 18131</Text>
+              <Text style={styles.contactText}>Actonville, Benoni, 1501</Text>
+            </View>
+            
+            <View style={styles.centerContactInfo}>
+            </View>
+            
+            <View style={styles.rightContactInfo}>
+              <Text style={styles.contactText}>Tel: 010 493 3544</Text>
+              <Text style={styles.contactText}>Fax: 011 914 3093</Text>
+              <Text style={styles.contactText}>Cell: 060 557 3625</Text>
+              <Text style={styles.contactText}>e-mail: info@drhirainc.com</Text>
+            </View>
+          </View>
         </View>
-        
-        <Text style={styles.debugText}>⬆️ GREEN PLACEHOLDER ABOVE</Text>
-        
-        {/* Try loading the actual image */}
-        <Image
-          source={require('../assets/prescription-template.jpg')}
-          style={styles.templateImage}
-          resizeMode="contain"
-          onError={(error) => {
-            console.error('❌ JPG Image failed:', error.nativeEvent?.error || 'Unknown error');
-          }}
-          onLoad={() => {
-            console.log('✅ JPG Template loaded successfully');
-          }}
-          onLoadStart={() => {
-            console.log('🔄 JPG Template loading started');
-          }}
-          onLoadEnd={() => {
-            console.log('🏁 JPG Template loading ended');
-          }}
-        />
-        
-        <Text style={styles.debugText}>⬆️ BLUE BOX = JPG IMAGE ABOVE</Text>
-        <Text style={styles.debugText}>Check console for loading messages</Text>
+
+        {/* Form Fields Section */}
+        <View style={styles.formFieldsContainer}>
+          <View style={styles.formRow}>
+            <View style={styles.formField}>
+              <Text style={styles.fieldLabel}>Date:</Text>
+              <View style={styles.fieldLine}>
+                <Text style={styles.fieldValue}>{formatDate(date)}</Text>
+              </View>
+            </View>
+            
+            <View style={styles.formField}>
+              <Text style={styles.fieldLabel}>Age of Minor:</Text>
+              <View style={styles.fieldLine}>
+                <Text style={styles.fieldValue}>{age || ''}</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.formRow}>
+            <View style={styles.formFieldFull}>
+              <Text style={styles.fieldLabel}>Name:</Text>
+              <View style={styles.fieldLine}>
+                <Text style={styles.fieldValue}>{patientName}</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.formRow}>
+            <View style={styles.formFieldFull}>
+              <Text style={styles.fieldLabel}>Address:</Text>
+              <View style={styles.fieldLine}>
+                <Text style={styles.fieldValue}></Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Prescription Section */}
+        <View style={styles.prescriptionSection}>
+          <View style={styles.rxHeader}>
+            <Text style={styles.rxLabel}>Rx:</Text>
+          </View>
+          
+          <View style={styles.prescriptionContent}>
+            <Text style={styles.prescriptionText}>{prescriptionText}</Text>
+            {repeats > 0 && (
+              <Text style={styles.repeatsText}>Repeat x {repeats}</Text>
+            )}
+          </View>
+        </View>
+
+        {/* Signature Section */}
+        <View style={styles.signatureSection}>
+          <View style={styles.leftSignatureArea}>
+            <View style={styles.signatureContainer}>
+              <Image
+                source={require('../assets/signature.png')} // Place your signature image in assets folder
+                style={styles.signatureImage}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.signatureName}>Dr P.Hira</Text>
+            <Text style={styles.signatureTitle}>MBBCh(Wits)</Text>
+          </View>
+        </View>
       </View>
     );
   };
@@ -299,43 +365,39 @@ function CreateScriptScreen({ navigation, route }) {
           />
         </View>
 
-        {/* Patient Section */}
+        {/* Patient Selection */}
         <View style={styles.section}>
-          <Text style={styles.fieldLabel}>Patient Name *</Text>
+          <Text style={styles.fieldLabel}>Patient *</Text>
           
+          {/* Toggle between saved patients and custom name */}
           <View style={styles.toggleContainer}>
             <TouchableOpacity
-              style={[
-                styles.toggleButton,
-                !useCustomPatient && styles.toggleButtonActive
-              ]}
+              style={[styles.toggleButton, !useCustomPatient && styles.toggleButtonActive]}
               onPress={() => setUseCustomPatient(false)}
             >
-              <Text style={[
-                styles.toggleText,
-                !useCustomPatient && styles.toggleTextActive
-              ]}>
-                Select Patient
+              <Text style={[styles.toggleText, !useCustomPatient && styles.toggleTextActive]}>
+                Saved Patients
               </Text>
             </TouchableOpacity>
-            
             <TouchableOpacity
-              style={[
-                styles.toggleButton,
-                useCustomPatient && styles.toggleButtonActive
-              ]}
+              style={[styles.toggleButton, useCustomPatient && styles.toggleButtonActive]}
               onPress={() => setUseCustomPatient(true)}
             >
-              <Text style={[
-                styles.toggleText,
-                useCustomPatient && styles.toggleTextActive
-              ]}>
+              <Text style={[styles.toggleText, useCustomPatient && styles.toggleTextActive]}>
                 Custom Name
               </Text>
             </TouchableOpacity>
           </View>
 
-          {!useCustomPatient ? (
+          {useCustomPatient ? (
+            <TextInput
+              style={GlobalStyles.input}
+              value={customPatientName}
+              onChangeText={setCustomPatientName}
+              placeholder="Enter patient name"
+              placeholderTextColor={Colors.textLight}
+            />
+          ) : (
             <View>
               <TouchableOpacity
                 style={styles.dropdownButton}
@@ -348,48 +410,28 @@ function CreateScriptScreen({ navigation, route }) {
               </TouchableOpacity>
               {renderPatientDropdown()}
             </View>
-          ) : (
-            <TextInput
-              style={GlobalStyles.input}
-              value={customPatientName}
-              onChangeText={setCustomPatientName}
-              placeholder="Enter patient name"
-              placeholderTextColor={Colors.textLight}
-            />
           )}
         </View>
 
         {/* Prescription Section */}
         <View style={styles.section}>
-          <Text style={styles.fieldLabel}>Prescription Content *</Text>
+          <Text style={styles.fieldLabel}>Prescription *</Text>
           
+          {/* Toggle between presets and custom prescription */}
           <View style={styles.toggleContainer}>
             <TouchableOpacity
-              style={[
-                styles.toggleButton,
-                !useCustomPrescription && styles.toggleButtonActive
-              ]}
+              style={[styles.toggleButton, !useCustomPrescription && styles.toggleButtonActive]}
               onPress={() => setUseCustomPrescription(false)}
             >
-              <Text style={[
-                styles.toggleText,
-                !useCustomPrescription && styles.toggleTextActive
-              ]}>
-                Use Preset
+              <Text style={[styles.toggleText, !useCustomPrescription && styles.toggleTextActive]}>
+                Use Presets
               </Text>
             </TouchableOpacity>
-            
             <TouchableOpacity
-              style={[
-                styles.toggleButton,
-                useCustomPrescription && styles.toggleButtonActive
-              ]}
+              style={[styles.toggleButton, useCustomPrescription && styles.toggleButtonActive]}
               onPress={() => setUseCustomPrescription(true)}
             >
-              <Text style={[
-                styles.toggleText,
-                useCustomPrescription && styles.toggleTextActive
-              ]}>
+              <Text style={[styles.toggleText, useCustomPrescription && styles.toggleTextActive]}>
                 Custom
               </Text>
             </TouchableOpacity>
@@ -420,6 +462,24 @@ function CreateScriptScreen({ navigation, route }) {
             textAlignVertical="top"
             placeholderTextColor={Colors.textLight}
           />
+
+          {/* Repeats Section */}
+          <View style={styles.repeatsSection}>
+            <Text style={[styles.fieldLabel, {fontSize: 13, marginBottom: 6}]}>Repeats</Text>
+            <View style={styles.repeatsContainer}>
+              {[0, 1, 2, 3, 4, 5, 6].map((num) => (
+                <TouchableOpacity
+                  key={num}
+                  style={[styles.repeatButton, repeats === num && styles.repeatButtonActive]}
+                  onPress={() => setRepeats(num)}
+                >
+                  <Text style={[styles.repeatButtonText, repeats === num && styles.repeatButtonTextActive]}>
+                    {num}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
         </View>
 
         {/* Action Buttons */}
@@ -466,7 +526,7 @@ function CreateScriptScreen({ navigation, route }) {
             {/* Content Area */}
             <ScrollView style={styles.fullscreenContent}>
               <View style={styles.fullscreenContentContainer}>
-                {renderSimpleTemplate()}
+                {renderPrescriptionTemplate()}
               </View>
             </ScrollView>
           </View>
@@ -647,126 +707,342 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
 
-  // Modal Styles
-  modalOverlay: {
+  // Fullscreen Modal Styles
+  fullscreenModalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  previewModalContent: {
     backgroundColor: Colors.white,
-    borderRadius: 16,
-    width: '95%',
-    maxHeight: '90%',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 10,
   },
 
-  previewHeader: {
+  fullscreenHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
+    backgroundColor: Colors.primaryBlue,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderGrey,
   },
 
-  previewTitle: {
+  fullscreenTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: Colors.textPrimary,
+    color: Colors.white,
   },
 
-  closeButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: Colors.borderGrey,
+  fullscreenCloseButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 6,
+  },
+
+  fullscreenCloseText: {
+    fontSize: 14,
+    color: Colors.white,
+    fontWeight: '600',
+  },
+
+  fullscreenContent: {
+    flex: 1,
+    backgroundColor: '#f0f4f8',
+  },
+
+  fullscreenContentContainer: {
+    padding: 20,
+    alignItems: 'center',
     justifyContent: 'center',
+    minHeight: screenHeight - 100,
+  },
+
+  // Prescription Form Styles
+  prescriptionFormContainer: {
+    backgroundColor: Colors.white,
+    width: '100%',
+    maxWidth: 600,
+    padding: 0,
+    borderWidth: 3,
+    borderColor: '#2c5aa0',
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+
+  // Header Styles
+  prescriptionHeader: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#2c5aa0',
+    paddingBottom: 8,
+    backgroundColor: '#f8f9ff',
+  },
+
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    marginBottom: 8,
+  },
+
+  doctorInfo: {
     alignItems: 'center',
   },
 
-  closeButtonText: {
-    fontSize: 16,
-    color: Colors.textSecondary,
+  doctorName: {
+    fontSize: 24,
     fontWeight: 'bold',
+    fontStyle: 'italic',
+    color: '#1a365d',
+    textAlign: 'center',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    textShadowColor: 'rgba(0,0,0,0.1)',
+    textShadowOffset: {width: 1, height: 1},
+    textShadowRadius: 2,
   },
 
-  previewScrollContainer: {
+  practiceNumber: {
+    fontSize: 12,
+    color: '#4a5568',
+    textAlign: 'center',
+    marginTop: 2,
+    fontStyle: 'italic',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+  },
+
+  contactInfoRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+    backgroundColor: 'rgba(44, 90, 160, 0.05)',
+  },
+
+  leftContactInfo: {
+    flex: 2,
+    paddingRight: 8,
+  },
+
+  centerContactInfo: {
+    flex: 1,
+    alignItems: 'center',
+  },
+
+  rightContactInfo: {
+    flex: 2,
+    paddingLeft: 8,
+  },
+
+  contactText: {
+    fontSize: 9,
+    color: '#2d3748',
+    lineHeight: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+  },
+
+  // Form Fields Styles
+  formFieldsContainer: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderBottomWidth: 2,
+    borderBottomColor: '#2c5aa0',
+    backgroundColor: 'rgba(44, 90, 160, 0.02)',
+  },
+
+  formRow: {
+    flexDirection: 'row',
+    marginBottom: 6,
+    alignItems: 'flex-end',
+  },
+
+  formField: {
+    flex: 1,
+    marginRight: 20,
+  },
+
+  formFieldFull: {
     flex: 1,
   },
 
-  previewScrollContent: {
-    padding: 20,
+  fieldLabel: {
+    fontSize: 11,
+    color: '#2c5aa0',
+    fontWeight: '600',
+    marginBottom: 2,
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
   },
 
-  captureContainer: {
+  fieldLine: {
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#4299e1',
+    minHeight: 18,
+    paddingBottom: 2,
+    backgroundColor: 'rgba(66, 153, 225, 0.05)',
+  },
+
+  fieldValue: {
+    fontSize: 13,
+    color: '#1a365d',
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+  },
+
+  // Prescription Section Styles
+  prescriptionSection: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    minHeight: 220,
+    backgroundColor: 'rgba(247, 250, 252, 0.8)',
+  },
+
+  rxHeader: {
+    marginBottom: 10,
+    paddingBottom: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+
+  rxLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontStyle: 'italic',
+    color: '#2c5aa0',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+  },
+
+  prescriptionContent: {
+    flex: 1,
+    paddingLeft: 8,
+    paddingRight: 8,
+    paddingTop: 8,
     backgroundColor: Colors.white,
-    alignItems: 'center',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
 
-  // Simple Template Styles
-  templateContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F5F5F5', // Light gray background
-    padding: 20,
-    minHeight: 400,
-    width: '100%', // Ensure full width
+  prescriptionText: {
+    fontSize: 13,
+    color: '#2d3748',
+    lineHeight: 20,
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
   },
 
-  templateImage: {
-    width: screenWidth * 0.7, // Smaller to ensure it fits
-    height: 300, // Fixed height to ensure it's visible
-    backgroundColor: '#FFFFFF',
-    borderWidth: 3,
-    borderColor: '#2196F3', // Thick blue border
-    marginVertical: 10,
-  },
-
-  debugText: {
-    fontSize: 16, // Larger text
+  repeatsText: {
+    fontSize: 13,
+    color: '#2c5aa0',
     fontWeight: 'bold',
-    color: '#FF5722', // Orange color to stand out
-    marginVertical: 8,
-    textAlign: 'center',
-    backgroundColor: '#FFEB3B', // Yellow background
-    padding: 5,
+    marginTop: 12,
+    textAlign: 'left',
+    fontStyle: 'italic',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
   },
 
-  placeholderTemplate: {
-    width: screenWidth * 0.7, // Smaller to ensure it fits
-    height: 250, // Fixed height
-    backgroundColor: '#FFFFFF',
-    borderWidth: 4,
-    borderColor: '#4CAF50', // Thick green border
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 10,
-    padding: 20,
+  // Repeats Section Styles
+  repeatsSection: {
+    marginTop: 15,
+    padding: 12,
+    backgroundColor: 'rgba(66, 153, 225, 0.08)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#bee3f8',
   },
 
-  placeholderText: {
-    fontSize: 16, // Larger text
+  repeatsContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 6,
+    flexWrap: 'wrap',
+  },
+
+  repeatButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#4299e1',
+    backgroundColor: Colors.white,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+
+  repeatButtonActive: {
+    backgroundColor: '#4299e1',
+    borderColor: '#2c5aa0',
+    transform: [{scale: 1.05}],
+  },
+
+  repeatButtonText: {
+    fontSize: 15,
+    color: '#2c5aa0',
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+  },
+
+  repeatButtonTextActive: {
+    color: Colors.white,
     fontWeight: 'bold',
-    color: '#000000',
-    textAlign: 'center',
-    marginVertical: 3,
   },
 
-  placeholderSubtext: {
-    fontSize: 12,
-    color: '#666666',
-    textAlign: 'center',
-    marginVertical: 2,
+  // Signature Section Styles
+  signatureSection: {
+    borderTopWidth: 2,
+    borderTopColor: '#2c5aa0',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: 'rgba(247, 250, 252, 0.6)',
+  },
+
+  leftSignatureArea: {
+    alignItems: 'flex-start',
+  },
+
+  signatureContainer: {
+    marginBottom: 10,
+    padding: 8,
+    backgroundColor: Colors.white,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  signatureImage: {
+    width: 120,
+    height: 45,
+  },
+
+  signatureName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#1a365d',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    fontStyle: 'italic',
+  },
+
+  signatureTitle: {
+    fontSize: 11,
+    color: '#4a5568',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    fontStyle: 'italic',
   },
 });
 
