@@ -11,11 +11,13 @@ import {
   ActivityIndicator,
   Dimensions,
   Modal,
-  Image
+  Image,
+  Linking
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GlobalStyles, Colors } from '../GlobalStyles';
+import ViewShot from 'react-native-view-shot';
 
 const PRESETS_STORAGE_KEY = '@prescription_presets';
 const PATIENTS_STORAGE_KEY = '@patients_data';
@@ -60,6 +62,9 @@ function CreateScriptScreen({ navigation, route }) {
   
   // Modal states
   const [showPreviewModal, setShowPreviewModal] = React.useState(false);
+
+  // Ref for capturing prescription view
+  const prescriptionRef = React.useRef(null);
 
   React.useEffect(() => {
     loadData();
@@ -178,6 +183,129 @@ function CreateScriptScreen({ navigation, route }) {
     );
   };
 
+  const shareViaWhatsApp = async () => {
+    try {
+      // Capture the prescription as image
+      const uri = await captureViewAsImage();
+      if (!uri) {
+        Alert.alert('Error', 'Failed to capture prescription image');
+        return;
+      }
+
+      const patientName = useCustomPatient ? customPatientName : 
+        (selectedPatient ? `${selectedPatient.name} ${selectedPatient.surname}` : '');
+      
+      // Get patient's cell number for WhatsApp
+      let phoneNumber = '';
+      if (selectedPatient && selectedPatient.cellNumber) {
+        phoneNumber = selectedPatient.cellNumber.replace(/\D/g, '');
+        if (phoneNumber.startsWith('27')) {
+          phoneNumber = phoneNumber;
+        } else if (phoneNumber.startsWith('0')) {
+          phoneNumber = '27' + phoneNumber.substring(1);
+        } else if (phoneNumber.length === 9) {
+          phoneNumber = '27' + phoneNumber;
+        }
+      }
+
+      // Show success message and open WhatsApp
+      Alert.alert(
+        'Prescription Captured!',
+        `Prescription image for ${patientName} has been captured successfully.\n\nOpening WhatsApp now - you can share the image from your recent photos.`,
+        [
+          {
+            text: 'Open WhatsApp',
+            onPress: async () => {
+              let whatsappUrl;
+              if (phoneNumber) {
+                whatsappUrl = `whatsapp://send?phone=${phoneNumber}`;
+              } else {
+                whatsappUrl = 'whatsapp://';
+              }
+              
+              try {
+                const supported = await Linking.canOpenURL(whatsappUrl);
+                if (supported) {
+                  await Linking.openURL(whatsappUrl);
+                } else {
+                  Alert.alert('Error', 'WhatsApp is not installed on this device');
+                }
+              } catch (error) {
+                Alert.alert('Error', 'Failed to open WhatsApp');
+              }
+            }
+          },
+          { text: 'Cancel' }
+        ]
+      );
+
+    } catch (error) {
+      Alert.alert('Error', 'Failed to process prescription: ' + error.message);
+    }
+  };
+
+  const shareViaGmail = async () => {
+    try {
+      // Capture the prescription as image
+      const uri = await captureViewAsImage();
+      if (!uri) {
+        Alert.alert('Error', 'Failed to capture prescription image');
+        return;
+      }
+
+      const patientName = useCustomPatient ? customPatientName : 
+        (selectedPatient ? `${selectedPatient.name} ${selectedPatient.surname}` : '');
+      
+      const subject = `Prescription for ${patientName}`;
+      const body = `Please find attached original prescription for ${patientName}, for any queries please contact us at 011 914 3093 and ask for Dr P Hira`;
+      
+      // Show success message and open email
+      Alert.alert(
+        'Prescription Captured!',
+        `Prescription image for ${patientName} has been captured successfully.\n\nOpening email now - you can attach the image from your recent photos.`,
+        [
+          {
+            text: 'Open Email',
+            onPress: async () => {
+              try {
+                const emailUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                const supported = await Linking.canOpenURL(emailUrl);
+                if (supported) {
+                  await Linking.openURL(emailUrl);
+                } else {
+                  Alert.alert('Error', 'No email client found');
+                }
+              } catch (error) {
+                Alert.alert('Error', 'Failed to open email client');
+              }
+            }
+          },
+          { text: 'Cancel' }
+        ]
+      );
+
+    } catch (error) {
+      Alert.alert('Error', 'Failed to process prescription: ' + error.message);
+    }
+  };
+
+  const captureViewAsImage = async () => {
+    try {
+      const uri = await prescriptionRef.current.capture({
+        format: 'jpg',
+        quality: 0.9,
+        result: 'tmpfile',
+        width: 600,
+        height: 800
+      });
+      return uri;
+    } catch (error) {
+      console.error('Error capturing view:', error);
+      Alert.alert('Error', 'Failed to capture prescription image');
+      return null;
+    }
+  };
+
   const renderPatientDropdown = () => {
     if (!showPatientDropdown) return null;
     
@@ -224,105 +352,107 @@ function CreateScriptScreen({ navigation, route }) {
     const prescriptionText = useCustomPrescription ? customPrescription : prescription;
 
     return (
-      <View style={styles.prescriptionFormContainer}>
-        {/* Header Section */}
-        <View style={styles.prescriptionHeader}>
-          <View style={styles.headerTopRow}>
-            <View style={styles.doctorInfo}>
-              <Text style={styles.doctorName}>DR P. HIRA INC.</Text>
-              <Text style={styles.practiceNumber}>PR. NO 0929484</Text>
-            </View>
-          </View>
-          
-          <View style={styles.contactInfoRow}>
-            <View style={styles.leftContactInfo}>
-              <Text style={styles.contactText}>Consulting rooms:</Text>
-              <Text style={styles.contactText}>5/87 Dunswart</Text>
-              <Text style={styles.contactText}>Apartments</Text>
-              <Text style={styles.contactText}>Dunswart, Boksburg,</Text>
-              <Text style={styles.contactText}>1459</Text>
-              <Text style={styles.contactText}>PO Box 18131</Text>
-              <Text style={styles.contactText}>Actonville, Benoni, 1501</Text>
-            </View>
-            
-            <View style={styles.centerContactInfo}>
-            </View>
-            
-            <View style={styles.rightContactInfo}>
-              <Text style={styles.contactText}>Tel: 010 493 3544</Text>
-              <Text style={styles.contactText}>Fax: 011 914 3093</Text>
-              <Text style={styles.contactText}>Cell: 060 557 3625</Text>
-              <Text style={styles.contactText}>e-mail: info@drhirainc.com</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Form Fields Section */}
-        <View style={styles.formFieldsContainer}>
-          <View style={styles.formRow}>
-            <View style={styles.formField}>
-              <Text style={styles.fieldLabel}>Date:</Text>
-              <View style={styles.fieldLine}>
-                <Text style={styles.fieldValue}>{formatDate(date)}</Text>
+      <ViewShot ref={prescriptionRef} options={{ format: "jpg", quality: 0.9 }}>
+        <View style={styles.prescriptionFormContainer}>
+          {/* Header Section */}
+          <View style={styles.prescriptionHeader}>
+            <View style={styles.headerTopRow}>
+              <View style={styles.doctorInfo}>
+                <Text style={styles.doctorName}>DR P. HIRA INC.</Text>
+                <Text style={styles.practiceNumber}>PR. NO 0929484</Text>
               </View>
             </View>
             
-            <View style={styles.formField}>
-              <Text style={styles.fieldLabel}>Age of Minor:</Text>
-              <View style={styles.fieldLine}>
-                <Text style={styles.fieldValue}>{age || ''}</Text>
+            <View style={styles.contactInfoRow}>
+              <View style={styles.leftContactInfo}>
+                <Text style={styles.contactText}>Consulting rooms:</Text>
+                <Text style={styles.contactText}>5/87 Dunswart</Text>
+                <Text style={styles.contactText}>Apartments</Text>
+                <Text style={styles.contactText}>Dunswart, Boksburg,</Text>
+                <Text style={styles.contactText}>1459</Text>
+                <Text style={styles.contactText}>PO Box 18131</Text>
+                <Text style={styles.contactText}>Actonville, Benoni, 1501</Text>
+              </View>
+              
+              <View style={styles.centerContactInfo}>
+              </View>
+              
+              <View style={styles.rightContactInfo}>
+                <Text style={styles.contactText}>Tel: 010 493 3544</Text>
+                <Text style={styles.contactText}>Fax: 011 914 3093</Text>
+                <Text style={styles.contactText}>Cell: 069 711 0731</Text>
+                <Text style={styles.contactText}>e-mail: info@drhirainc.com</Text>
               </View>
             </View>
           </View>
 
-          <View style={styles.formRow}>
-            <View style={styles.formFieldFull}>
-              <Text style={styles.fieldLabel}>Name:</Text>
-              <View style={styles.fieldLine}>
-                <Text style={styles.fieldValue}>{patientName}</Text>
+          {/* Form Fields Section */}
+          <View style={styles.formFieldsContainer}>
+            <View style={styles.formRow}>
+              <View style={styles.formField}>
+                <Text style={styles.fieldLabel}>Date:</Text>
+                <View style={styles.fieldLine}>
+                  <Text style={styles.fieldValue}>{formatDate(date)}</Text>
+                </View>
+              </View>
+              
+              <View style={styles.formField}>
+                <Text style={styles.fieldLabel}>Age of Minor:</Text>
+                <View style={styles.fieldLine}>
+                  <Text style={styles.fieldValue}>{age || ''}</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.formRow}>
+              <View style={styles.formFieldFull}>
+                <Text style={styles.fieldLabel}>Name:</Text>
+                <View style={styles.fieldLine}>
+                  <Text style={styles.fieldValue}>{patientName}</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.formRow}>
+              <View style={styles.formFieldFull}>
+                <Text style={styles.fieldLabel}>Address:</Text>
+                <View style={styles.fieldLine}>
+                  <Text style={styles.fieldValue}></Text>
+                </View>
               </View>
             </View>
           </View>
 
-          <View style={styles.formRow}>
-            <View style={styles.formFieldFull}>
-              <Text style={styles.fieldLabel}>Address:</Text>
-              <View style={styles.fieldLine}>
-                <Text style={styles.fieldValue}></Text>
+          {/* Prescription Section */}
+          <View style={styles.prescriptionSection}>
+            <View style={styles.rxHeader}>
+              <Text style={styles.rxLabel}>Rx:</Text>
+            </View>
+            
+            <View style={styles.prescriptionContent}>
+              <Text style={styles.prescriptionText}>{prescriptionText}</Text>
+              {repeats > 0 && (
+                <Text style={styles.repeatsText}>Repeat x {repeats}</Text>
+              )}
+            </View>
+          </View>
+
+          {/* Signature Section */}
+          <View style={styles.signatureSection}>
+            <View style={styles.leftSignatureArea}>
+              <View style={styles.signatureContainer}>
+                <Image
+                  source={require('../assets/signature.png')} // Place your signature image in assets folder
+                  style={styles.signatureImage}
+                  resizeMode="contain"
+                />
               </View>
+              <Text style={styles.signatureName}>Dr P.Hira</Text>
+              <Text style={styles.signatureTitle}>MBBCh(Wits)</Text>
             </View>
           </View>
         </View>
-
-        {/* Prescription Section */}
-        <View style={styles.prescriptionSection}>
-          <View style={styles.rxHeader}>
-            <Text style={styles.rxLabel}>Rx:</Text>
-          </View>
-          
-          <View style={styles.prescriptionContent}>
-            <Text style={styles.prescriptionText}>{prescriptionText}</Text>
-            {repeats > 0 && (
-              <Text style={styles.repeatsText}>Repeat x {repeats}</Text>
-            )}
-          </View>
-        </View>
-
-        {/* Signature Section */}
-        <View style={styles.signatureSection}>
-          <View style={styles.leftSignatureArea}>
-            <View style={styles.signatureContainer}>
-              <Image
-                source={require('../assets/signature.png')} // Place your signature image in assets folder
-                style={styles.signatureImage}
-                resizeMode="contain"
-              />
-            </View>
-            <Text style={styles.signatureName}>Dr P.Hira</Text>
-            <Text style={styles.signatureTitle}>MBBCh(Wits)</Text>
-          </View>
-        </View>
-      </View>
+      </ViewShot>
     );
   };
 
@@ -527,6 +657,29 @@ function CreateScriptScreen({ navigation, route }) {
             <ScrollView style={styles.fullscreenContent}>
               <View style={styles.fullscreenContentContainer}>
                 {renderPrescriptionTemplate()}
+                
+                {/* Export Buttons */}
+                <View style={styles.exportButtonsContainer}>
+                  <TouchableOpacity
+                    style={styles.exportButton}
+                    onPress={shareViaWhatsApp}
+                  >
+                    <View style={styles.whatsappIcon}>
+                      <Text style={styles.iconText}>📱</Text>
+                    </View>
+                    <Text style={styles.exportButtonText}>WhatsApp Patient</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={styles.exportButton}
+                    onPress={shareViaGmail}
+                  >
+                    <View style={styles.gmailIcon}>
+                      <Text style={styles.iconText}>📧</Text>
+                    </View>
+                    <Text style={styles.exportButtonText}>Email Patient</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </ScrollView>
           </View>
@@ -748,17 +901,18 @@ const styles = StyleSheet.create({
   },
 
   fullscreenContentContainer: {
-    padding: 20,
+    padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: screenHeight - 100,
+    width: '100%',
   },
 
   // Prescription Form Styles
   prescriptionFormContainer: {
     backgroundColor: Colors.white,
     width: '100%',
-    maxWidth: 600,
+    minWidth: 350,
     padding: 0,
     borderWidth: 3,
     borderColor: '#2c5aa0',
@@ -820,21 +974,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingBottom: 8,
     backgroundColor: 'rgba(44, 90, 160, 0.05)',
+    minHeight: 60,
   },
 
   leftContactInfo: {
     flex: 2,
     paddingRight: 8,
+    minWidth: 120,
   },
 
   centerContactInfo: {
     flex: 1,
     alignItems: 'center',
+    minWidth: 80,
   },
 
   rightContactInfo: {
     flex: 2,
     paddingLeft: 8,
+    minWidth: 120,
   },
 
   contactText: {
@@ -842,12 +1000,13 @@ const styles = StyleSheet.create({
     color: '#2d3748',
     lineHeight: 11,
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    flexWrap: 'wrap',
   },
 
   // Form Fields Styles
   formFieldsContainer: {
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderBottomWidth: 2,
     borderBottomColor: '#2c5aa0',
     backgroundColor: 'rgba(44, 90, 160, 0.02)',
@@ -855,17 +1014,19 @@ const styles = StyleSheet.create({
 
   formRow: {
     flexDirection: 'row',
-    marginBottom: 6,
+    marginBottom: 8,
     alignItems: 'flex-end',
   },
 
   formField: {
     flex: 1,
     marginRight: 20,
+    minWidth: 100,
   },
 
   formFieldFull: {
     flex: 1,
+    minWidth: 200,
   },
 
   fieldLabel: {
@@ -879,7 +1040,7 @@ const styles = StyleSheet.create({
   fieldLine: {
     borderBottomWidth: 1.5,
     borderBottomColor: '#4299e1',
-    minHeight: 18,
+    minHeight: 20,
     paddingBottom: 2,
     backgroundColor: 'rgba(66, 153, 225, 0.05)',
   },
@@ -889,6 +1050,7 @@ const styles = StyleSheet.create({
     color: '#1a365d',
     fontWeight: '500',
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    flexWrap: 'wrap',
   },
 
   // Prescription Section Styles
@@ -1043,6 +1205,68 @@ const styles = StyleSheet.create({
     color: '#4a5568',
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
     fontStyle: 'italic',
+  },
+
+  // Export Buttons Styles
+  exportButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 20,
+    paddingHorizontal: 20,
+    gap: 15,
+  },
+
+  exportButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#4299e1',
+    backgroundColor: Colors.white,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+
+  whatsappIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#25D366',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+
+  gmailIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#EA4335',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+
+  iconText: {
+    fontSize: 16,
+    color: Colors.white,
+  },
+
+  exportButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2c5aa0',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
   },
 });
 
