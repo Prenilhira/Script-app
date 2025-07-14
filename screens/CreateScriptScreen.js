@@ -19,7 +19,6 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GlobalStyles, Colors } from '../GlobalStyles';
 import ViewShot from 'react-native-view-shot';
-// import CameraRoll from '@react-native-community/cameraroll';
 
 const PRESETS_STORAGE_KEY = '@prescription_presets';
 const PATIENTS_STORAGE_KEY = '@patients_data';
@@ -61,9 +60,12 @@ function CreateScriptScreen({ navigation, route }) {
   const [patients, setPatients] = React.useState([]);
   const [presets, setPresets] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
+  const [exportLoading, setExportLoading] = React.useState(false);
   
-  // Modal states
-  const [showPreviewModal, setShowPreviewModal] = React.useState(false);
+  // Modal and image states
+  const [showImageModal, setShowImageModal] = React.useState(false);
+  const [generatedImageUri, setGeneratedImageUri] = React.useState(null);
+  const [renderForCapture, setRenderForCapture] = React.useState(false);
 
   // Ref for capturing prescription view
   const prescriptionRef = React.useRef(null);
@@ -142,19 +144,48 @@ function CreateScriptScreen({ navigation, route }) {
     return true;
   };
 
-  const generatePrescription = async () => {
+  const generatePrescriptionImage = async () => {
     if (!validateForm()) return;
 
     setLoading(true);
     
     try {
-      // Show the preview modal with template
-      setShowPreviewModal(true);
-      setLoading(false);
+      console.log('Starting prescription image generation...');
+      
+      // First render the prescription template for capture
+      setRenderForCapture(true);
+      
+      // Wait a moment for the component to render
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Capture the prescription as image
+      if (prescriptionRef.current) {
+        console.log('Capturing prescription image...');
+        
+        const imageUri = await prescriptionRef.current.capture({
+          format: 'png',
+          quality: 1.0,
+          result: 'data-uri',
+          width: 800,
+          height: 1400
+        });
+        
+        console.log('Prescription image captured successfully');
+        
+        // Store the image and show modal
+        setGeneratedImageUri(imageUri);
+        setShowImageModal(true);
+        setRenderForCapture(false);
+        
+      } else {
+        throw new Error('Prescription view reference not found');
+      }
       
     } catch (error) {
-      console.error('Error generating prescription:', error);
-      Alert.alert('Error', 'Failed to generate prescription. Please try again.');
+      console.error('Error generating prescription image:', error);
+      Alert.alert('Error', 'Failed to generate prescription image. Please try again.');
+      setRenderForCapture(false);
+    } finally {
       setLoading(false);
     }
   };
@@ -179,6 +210,8 @@ function CreateScriptScreen({ navigation, route }) {
             setUseCustomPatient(false);
             setUseCustomPrescription(false);
             setRepeats(0);
+            setGeneratedImageUri(null);
+            setShowImageModal(false);
           }
         }
       ]
@@ -186,14 +219,16 @@ function CreateScriptScreen({ navigation, route }) {
   };
 
   const shareViaWhatsApp = async () => {
-    try {
-      // Capture the prescription as image
-      const uri = await captureViewAsImage();
-      if (!uri) {
-        Alert.alert('Error', 'Failed to capture prescription image');
-        return;
-      }
+    if (!generatedImageUri) {
+      Alert.alert('Error', 'No prescription image generated');
+      return;
+    }
 
+    setExportLoading(true);
+    
+    try {
+      console.log('Starting WhatsApp share...');
+      
       const patientName = useCustomPatient ? customPatientName : 
         (selectedPatient ? `${selectedPatient.name} ${selectedPatient.surname}` : '');
       
@@ -210,16 +245,23 @@ function CreateScriptScreen({ navigation, route }) {
         }
       }
 
-      // Use React Native's built-in Share with the file URI
-      try {
-        const shareResult = await Share.share({
-          url: `file://${uri}`,
-          title: `Prescription for ${patientName}`,
-        });
+      // Share the image using React Native Share
+      const shareOptions = {
+        title: `Prescription for ${patientName}`,
+        message: `Prescription for ${patientName} - ${formatDate(date)}`,
+        url: generatedImageUri,
+        type: 'image/png',
+      };
 
-        // If sharing was successful, open WhatsApp
-        if (shareResult.action === Share.sharedAction) {
-          setTimeout(async () => {
+      const result = await Share.share(shareOptions);
+      
+      if (result.action === Share.sharedAction) {
+        console.log('Image shared successfully');
+        Alert.alert('Success', 'Prescription image shared successfully!');
+        
+        // Open WhatsApp after successful share
+        setTimeout(async () => {
+          try {
             let whatsappUrl = phoneNumber ? 
               `whatsapp://send?phone=${phoneNumber}` : 
               'whatsapp://';
@@ -228,114 +270,70 @@ function CreateScriptScreen({ navigation, route }) {
             if (supported) {
               await Linking.openURL(whatsappUrl);
             }
-          }, 500);
-        }
-      } catch (shareError) {
-        // Fallback: Save to gallery and open WhatsApp
-        Alert.alert(
-          'Share Prescription',
-          `Prescription captured for ${patientName}. Opening WhatsApp - you can attach the image from your gallery.`,
-          [
-            {
-              text: 'Open WhatsApp',
-              onPress: async () => {
-                let whatsappUrl = phoneNumber ? 
-                  `whatsapp://send?phone=${phoneNumber}` : 
-                  'whatsapp://';
-                
-                const supported = await Linking.canOpenURL(whatsappUrl);
-                if (supported) {
-                  await Linking.openURL(whatsappUrl);
-                } else {
-                  Alert.alert('Error', 'WhatsApp is not installed');
-                }
-              }
-            },
-            { text: 'Cancel' }
-          ]
-        );
+          } catch (linkError) {
+            console.log('Could not open WhatsApp:', linkError);
+          }
+        }, 1000);
       }
 
     } catch (error) {
-      Alert.alert('Error', 'Failed to process prescription: ' + error.message);
+      console.error('WhatsApp share error:', error);
+      Alert.alert('Error', 'Failed to share prescription via WhatsApp: ' + error.message);
+    } finally {
+      setExportLoading(false);
     }
   };
 
-  const shareViaGmail = async () => {
-    try {
-      // Capture the prescription as image
-      const uri = await captureViewAsImage();
-      if (!uri) {
-        Alert.alert('Error', 'Failed to capture prescription image');
-        return;
-      }
+  const shareViaEmail = async () => {
+    if (!generatedImageUri) {
+      Alert.alert('Error', 'No prescription image generated');
+      return;
+    }
 
+    setExportLoading(true);
+    
+    try {
+      console.log('Starting Email share...');
+      
       const patientName = useCustomPatient ? customPatientName : 
         (selectedPatient ? `${selectedPatient.name} ${selectedPatient.surname}` : '');
       
       const subject = `Prescription for ${patientName}`;
-      const body = `Please find attached original prescription for ${patientName}, for any queries please contact us at 011 914 3093 and ask for Dr P Hira`;
+      const body = `Please find attached prescription for ${patientName}, for any queries please contact us at 011 914 3093 and ask for Dr P Hira`;
       
-      // Use React Native's built-in Share with the file URI
-      try {
-        const shareResult = await Share.share({
-          url: `file://${uri}`,
-          title: subject,
-          message: body,
-        });
+      // Share the image using React Native Share
+      const shareOptions = {
+        title: subject,
+        message: body,
+        url: generatedImageUri,
+        type: 'image/png',
+      };
 
-        // If sharing was successful, open email client
-        if (shareResult.action === Share.sharedAction) {
-          setTimeout(async () => {
+      const result = await Share.share(shareOptions);
+      
+      if (result.action === Share.sharedAction) {
+        console.log('Image shared successfully');
+        Alert.alert('Success', 'Prescription image shared successfully!');
+        
+        // Open email client after successful share
+        setTimeout(async () => {
+          try {
             const emailUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
             const supported = await Linking.canOpenURL(emailUrl);
             if (supported) {
               await Linking.openURL(emailUrl);
             }
-          }, 500);
-        }
-      } catch (shareError) {
-        // Fallback: Open email directly
-        Alert.alert(
-          'Share Prescription',
-          `Prescription captured for ${patientName}. Opening email - you can attach the image from your gallery.`,
-          [
-            {
-              text: 'Open Email',
-              onPress: async () => {
-                const emailUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-                const supported = await Linking.canOpenURL(emailUrl);
-                if (supported) {
-                  await Linking.openURL(emailUrl);
-                } else {
-                  Alert.alert('Error', 'No email client found');
-                }
-              }
-            },
-            { text: 'Cancel' }
-          ]
-        );
+          } catch (linkError) {
+            console.log('Could not open email client:', linkError);
+          }
+        }, 1000);
       }
 
     } catch (error) {
-      Alert.alert('Error', 'Failed to process prescription: ' + error.message);
-    }
-  };
-
-  const captureViewAsImage = async () => {
-    try {
-      const uri = await prescriptionRef.current.capture({
-        format: 'jpg',
-        quality: 0.9,
-        result: 'tmpfile',
-        width: 600,
-        height: 800
-      });
-      return uri;
-    } catch (error) {
-      console.error('Error capturing view:', error);
-      Alert.alert('Error', 'Failed to capture prescription image');
-      return null;
+      console.error('Email share error:', error);
+      Alert.alert('Error', 'Failed to share prescription via email: ' + error.message);
+    } finally {
+      setExportLoading(false);
     }
   };
 
@@ -385,107 +383,109 @@ function CreateScriptScreen({ navigation, route }) {
     const prescriptionText = useCustomPrescription ? customPrescription : prescription;
 
     return (
-      <ViewShot ref={prescriptionRef} options={{ format: "jpg", quality: 0.9 }}>
-        <View style={styles.prescriptionFormContainer}>
-          {/* Header Section */}
-          <View style={styles.prescriptionHeader}>
-            <View style={styles.headerTopRow}>
-              <View style={styles.doctorInfo}>
-                <Text style={styles.doctorName}>DR P. HIRA INC.</Text>
-                <Text style={styles.practiceNumber}>PR. NO 0929484</Text>
-              </View>
+      <View style={styles.prescriptionFormContainer}>
+        {/* Header Section */}
+        <View style={styles.prescriptionHeader}>
+          <View style={styles.headerTopRow}>
+            <View style={styles.doctorInfo}>
+              <Text style={styles.doctorName}>DR P. HIRA INC.</Text>
+              <Text style={styles.practiceNumber}>PR. NO 0929484</Text>
+            </View>
+          </View>
+          
+          <View style={styles.contactInfoRow}>
+            <View style={styles.leftContactInfo}>
+              <Text style={styles.contactText}>Consulting rooms:</Text>
+              <Text style={styles.contactText}>5/87 Dunswart</Text>
+              <Text style={styles.contactText}>Apartments</Text>
+              <Text style={styles.contactText}>Dunswart, Boksburg,</Text>
+              <Text style={styles.contactText}>1459</Text>
+              <Text style={styles.contactText}>PO Box 18131</Text>
+              <Text style={styles.contactText}>Actonville, Benoni, 1501</Text>
             </View>
             
-            <View style={styles.contactInfoRow}>
-              <View style={styles.leftContactInfo}>
-                <Text style={styles.contactText}>Consulting rooms:</Text>
-                <Text style={styles.contactText}>5/87 Dunswart</Text>
-                <Text style={styles.contactText}>Apartments</Text>
-                <Text style={styles.contactText}>Dunswart, Boksburg,</Text>
-                <Text style={styles.contactText}>1459</Text>
-                <Text style={styles.contactText}>PO Box 18131</Text>
-                <Text style={styles.contactText}>Actonville, Benoni, 1501</Text>
-              </View>
-              
-              <View style={styles.centerContactInfo}>
-              </View>
-              
-              <View style={styles.rightContactInfo}>
-                <Text style={styles.contactText}>Tel: 010 493 3544</Text>
-                <Text style={styles.contactText}>Fax: 011 914 3093</Text>
-                <Text style={styles.contactText}>Cell: 069 711 0731</Text>
-                <Text style={styles.contactText}>e-mail: info@drhirainc.com</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Form Fields Section */}
-          <View style={styles.formFieldsContainer}>
-            <View style={styles.formRow}>
-              <View style={styles.formField}>
-                <Text style={styles.fieldLabel}>Date:</Text>
-                <View style={styles.fieldLine}>
-                  <Text style={styles.fieldValue}>{formatDate(date)}</Text>
-                </View>
-              </View>
-              
-              <View style={styles.formField}>
-                <Text style={styles.fieldLabel}>Age of Minor:</Text>
-                <View style={styles.fieldLine}>
-                  <Text style={styles.fieldValue}>{age || ''}</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.formRow}>
-              <View style={styles.formFieldFull}>
-                <Text style={styles.fieldLabel}>Name:</Text>
-                <View style={styles.fieldLine}>
-                  <Text style={styles.fieldValue}>{patientName}</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.formRow}>
-              <View style={styles.formFieldFull}>
-                <Text style={styles.fieldLabel}>Address:</Text>
-                <View style={styles.fieldLine}>
-                  <Text style={styles.fieldValue}></Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* Prescription Section */}
-          <View style={styles.prescriptionSection}>
-            <View style={styles.rxHeader}>
-              <Text style={styles.rxLabel}>Rx:</Text>
+            <View style={styles.centerContactInfo}>
             </View>
             
-            <View style={styles.prescriptionContent}>
-              <Text style={styles.prescriptionText}>{prescriptionText}</Text>
-              {repeats > 0 && (
-                <Text style={styles.repeatsText}>Repeat x {repeats}</Text>
-              )}
-            </View>
-          </View>
-
-          {/* Signature Section */}
-          <View style={styles.signatureSection}>
-            <View style={styles.leftSignatureArea}>
-              <View style={styles.signatureContainer}>
-                <Image
-                  source={require('../assets/signature.png')} // Place your signature image in assets folder
-                  style={styles.signatureImage}
-                  resizeMode="contain"
-                />
-              </View>
-              <Text style={styles.signatureName}>Dr P.Hira</Text>
-              <Text style={styles.signatureTitle}>MBBCh(Wits)</Text>
+            <View style={styles.rightContactInfo}>
+              <Text style={styles.contactText}>Tel: 010 493 3544</Text>
+              <Text style={styles.contactText}>Fax: 011 914 3093</Text>
+              <Text style={styles.contactText}>Cell: 069 711 0731</Text>
+              <Text style={styles.contactText}>e-mail: info@drhirainc.com</Text>
             </View>
           </View>
         </View>
-      </ViewShot>
+
+        {/* Form Fields Section */}
+        <View style={styles.formFieldsContainer}>
+          <View style={styles.formRow}>
+            <View style={styles.formField}>
+              <Text style={styles.fieldLabel}>Date:</Text>
+              <View style={styles.fieldLine}>
+                <Text style={styles.fieldValue}>{formatDate(date)}</Text>
+              </View>
+            </View>
+            
+            <View style={styles.formField}>
+              <Text style={styles.fieldLabel}>Age of Minor:</Text>
+              <View style={styles.fieldLine}>
+                <Text style={styles.fieldValue}>{age || ''}</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.formRow}>
+            <View style={styles.formFieldFull}>
+              <Text style={styles.fieldLabel}>Name:</Text>
+              <View style={styles.fieldLine}>
+                <Text style={styles.fieldValue}>{patientName}</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.formRow}>
+            <View style={styles.formFieldFull}>
+              <Text style={styles.fieldLabel}>Address:</Text>
+              <View style={styles.fieldLine}>
+                <Text style={styles.fieldValue}></Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Prescription Section - Main Content Area */}
+        <View style={styles.prescriptionSection}>
+          <View style={styles.rxHeader}>
+            <Text style={styles.rxLabel}>Rx:</Text>
+          </View>
+          
+          <View style={styles.prescriptionContent}>
+            <Text style={styles.prescriptionText}>{prescriptionText}</Text>
+            
+            {/* Spacer to push repeats to bottom */}
+            <View style={{flex: 1, minHeight: 100}} />
+            
+            {repeats > 0 && (
+              <Text style={styles.repeatsText}>Repeat x {repeats}</Text>
+            )}
+          </View>
+        </View>
+
+        {/* Signature Section - Always at Bottom */}
+        <View style={styles.signatureSection}>
+          <View style={styles.leftSignatureArea}>
+            <View style={styles.signatureContainer}>
+              <Image
+                source={require('../assets/signature.png')} // Place your signature image in assets folder
+                style={styles.signatureImage}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.signatureName}>Dr P.Hira</Text>
+            <Text style={styles.signatureTitle}>MBBCh(Wits)</Text>
+          </View>
+        </View>
+      </View>
     );
   };
 
@@ -649,13 +649,16 @@ function CreateScriptScreen({ navigation, route }) {
         <View style={styles.actionButtons}>
           <TouchableOpacity 
             style={[GlobalStyles.primaryButton, styles.generateButton]}
-            onPress={generatePrescription}
+            onPress={generatePrescriptionImage}
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color={Colors.white} size="small" />
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color={Colors.white} size="small" />
+                <Text style={[GlobalStyles.buttonText, {marginLeft: 10}]}>Generating Image...</Text>
+              </View>
             ) : (
-              <Text style={GlobalStyles.buttonText}>Generate Prescription</Text>
+              <Text style={GlobalStyles.buttonText}>Generate Prescription Image</Text>
             )}
           </TouchableOpacity>
           
@@ -667,54 +670,83 @@ function CreateScriptScreen({ navigation, route }) {
           </TouchableOpacity>
         </View>
 
-        {/* FULLSCREEN Preview Modal */}
+        {/* Hidden ViewShot for Capture */}
+        {renderForCapture && (
+          <View style={styles.hiddenCaptureContainer}>
+            <ViewShot 
+              ref={prescriptionRef} 
+              options={{ format: "png", quality: 1.0, result: 'data-uri' }}
+              style={styles.viewShotContainer}
+            >
+              {renderPrescriptionTemplate()}
+            </ViewShot>
+          </View>
+        )}
+
+        {/* Full Screen Image Modal */}
         <Modal
           animationType="slide"
           transparent={false}
-          visible={showPreviewModal}
-          onRequestClose={() => setShowPreviewModal(false)}
+          visible={showImageModal}
+          onRequestClose={() => setShowImageModal(false)}
         >
-          <View style={styles.fullscreenModalContainer}>
-            {/* Header Bar */}
-            <View style={styles.fullscreenHeader}>
-              <Text style={styles.fullscreenTitle}>Prescription Template</Text>
+          <View style={styles.imageModalContainer}>
+            {/* Header */}
+            <View style={styles.imageModalHeader}>
+              <Text style={styles.imageModalTitle}>Generated Prescription</Text>
               <TouchableOpacity
-                style={styles.fullscreenCloseButton}
-                onPress={() => setShowPreviewModal(false)}
+                style={styles.imageModalCloseButton}
+                onPress={() => setShowImageModal(false)}
               >
-                <Text style={styles.fullscreenCloseText}>✕ CLOSE</Text>
+                <Text style={styles.imageModalCloseText}>✕ Close</Text>
               </TouchableOpacity>
             </View>
             
-            {/* Content Area */}
-            <ScrollView style={styles.fullscreenContent}>
-              <View style={styles.fullscreenContentContainer}>
-                {renderPrescriptionTemplate()}
-                
-                {/* Export Buttons */}
-                <View style={styles.exportButtonsContainer}>
-                  <TouchableOpacity
-                    style={styles.exportButton}
-                    onPress={shareViaWhatsApp}
-                  >
-                    <View style={styles.whatsappIcon}>
-                      <Text style={styles.iconText}>📱</Text>
-                    </View>
-                    <Text style={styles.exportButtonText}>WhatsApp Patient</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity
-                    style={styles.exportButton}
-                    onPress={shareViaGmail}
-                  >
-                    <View style={styles.gmailIcon}>
-                      <Text style={styles.iconText}>📧</Text>
-                    </View>
-                    <Text style={styles.exportButtonText}>Email Patient</Text>
-                  </TouchableOpacity>
-                </View>
+            {/* Image Display */}
+            <View style={styles.imageModalContent}>
+              <View style={styles.imageContainer}>
+                {generatedImageUri && (
+                  <Image
+                    source={{ uri: generatedImageUri }}
+                    style={styles.generatedImage}
+                    resizeMode="contain"
+                  />
+                )}
               </View>
-            </ScrollView>
+            </View>
+
+            {/* Export Buttons */}
+            <View style={styles.imageModalFooter}>
+              <TouchableOpacity
+                style={[styles.exportButton, exportLoading && styles.exportButtonDisabled]}
+                onPress={shareViaWhatsApp}
+                disabled={exportLoading}
+              >
+                <View style={styles.whatsappIcon}>
+                  <Text style={styles.iconText}>📱</Text>
+                </View>
+                {exportLoading ? (
+                  <ActivityIndicator color={Colors.primaryBlue} size="small" />
+                ) : (
+                  <Text style={styles.exportButtonText}>WhatsApp</Text>
+                )}
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.exportButton, exportLoading && styles.exportButtonDisabled]}
+                onPress={shareViaEmail}
+                disabled={exportLoading}
+              >
+                <View style={styles.emailIcon}>
+                  <Text style={styles.iconText}>📧</Text>
+                </View>
+                {exportLoading ? (
+                  <ActivityIndicator color={Colors.primaryBlue} size="small" />
+                ) : (
+                  <Text style={styles.exportButtonText}>Email</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </Modal>
       </ScrollView>
@@ -893,52 +925,26 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
 
-  // Fullscreen Modal Styles
-  fullscreenModalContainer: {
-    flex: 1,
-    backgroundColor: Colors.white,
-  },
-
-  fullscreenHeader: {
+  loadingContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: Colors.primaryBlue,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderGrey,
-  },
-
-  fullscreenTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.white,
-  },
-
-  fullscreenCloseButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 6,
-  },
-
-  fullscreenCloseText: {
-    fontSize: 14,
-    color: Colors.white,
-    fontWeight: '600',
-  },
-
-  fullscreenContent: {
-    flex: 1,
-    backgroundColor: '#f0f4f8',
-  },
-
-  fullscreenContentContainer: {
-    padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: screenHeight - 100,
-    width: '100%',
+  },
+
+  // Hidden Capture Container
+  hiddenCaptureContainer: {
+    position: 'absolute',
+    top: -10000,
+    left: -10000,
+    width: 800,
+    height: 1400,
+  },
+
+  // ViewShot Container
+  viewShotContainer: {
+    backgroundColor: Colors.white,
+    width: 800,
+    height: 1400,
   },
 
   // Prescription Form Styles
@@ -946,18 +952,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     width: '100%',
     minWidth: 350,
+    minHeight: 1000,
     padding: 0,
     borderWidth: 3,
     borderColor: '#2c5aa0',
     borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    flex: 1,
   },
 
   // Header Styles
@@ -988,9 +988,6 @@ const styles = StyleSheet.create({
     color: '#1a365d',
     textAlign: 'center',
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-    textShadowColor: 'rgba(0,0,0,0.1)',
-    textShadowOffset: {width: 1, height: 1},
-    textShadowRadius: 2,
   },
 
   practiceNumber: {
@@ -1033,7 +1030,6 @@ const styles = StyleSheet.create({
     color: '#2d3748',
     lineHeight: 11,
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-    flexWrap: 'wrap',
   },
 
   // Form Fields Styles
@@ -1083,7 +1079,6 @@ const styles = StyleSheet.create({
     color: '#1a365d',
     fontWeight: '500',
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-    flexWrap: 'wrap',
   },
 
   // Prescription Section Styles
@@ -1091,19 +1086,20 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    minHeight: 220,
+    minHeight: 500,
+    maxHeight: 700,
     backgroundColor: 'rgba(247, 250, 252, 0.8)',
   },
 
   rxHeader: {
-    marginBottom: 10,
-    paddingBottom: 5,
+    marginBottom: 15,
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
 
   rxLabel: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: 'bold',
     fontStyle: 'italic',
     color: '#2c5aa0',
@@ -1112,30 +1108,37 @@ const styles = StyleSheet.create({
 
   prescriptionContent: {
     flex: 1,
-    paddingLeft: 8,
-    paddingRight: 8,
-    paddingTop: 8,
+    paddingLeft: 12,
+    paddingRight: 12,
+    paddingTop: 15,
+    paddingBottom: 15,
     backgroundColor: Colors.white,
-    borderRadius: 6,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#e2e8f0',
+    minHeight: 400,
   },
 
   prescriptionText: {
-    fontSize: 13,
+    fontSize: 16,
     color: '#2d3748',
-    lineHeight: 20,
+    lineHeight: 24,
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    marginBottom: 20,
+    fontWeight: '500',
   },
 
   repeatsText: {
-    fontSize: 13,
+    fontSize: 16,
     color: '#2c5aa0',
     fontWeight: 'bold',
-    marginTop: 12,
+    marginTop: 'auto',
+    paddingTop: 20,
     textAlign: 'left',
     fontStyle: 'italic',
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
   },
 
   // Repeats Section Styles
@@ -1162,20 +1165,11 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#4299e1',
     backgroundColor: Colors.white,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
   },
 
   repeatButtonActive: {
     backgroundColor: '#4299e1',
     borderColor: '#2c5aa0',
-    transform: [{scale: 1.05}],
   },
 
   repeatButtonText: {
@@ -1194,9 +1188,10 @@ const styles = StyleSheet.create({
   signatureSection: {
     borderTopWidth: 2,
     borderTopColor: '#2c5aa0',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 25,
     backgroundColor: 'rgba(247, 250, 252, 0.6)',
+    marginTop: 'auto',
   },
 
   leftSignatureArea: {
@@ -1205,9 +1200,9 @@ const styles = StyleSheet.create({
 
   signatureContainer: {
     marginBottom: 10,
-    padding: 8,
+    padding: 10,
     backgroundColor: Colors.white,
-    borderRadius: 6,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#e2e8f0',
     shadowColor: '#000',
@@ -1221,85 +1216,149 @@ const styles = StyleSheet.create({
   },
 
   signatureImage: {
-    width: 120,
-    height: 45,
+    width: 140,
+    height: 55,
   },
 
   signatureName: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#1a365d',
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
     fontStyle: 'italic',
+    marginBottom: 4,
   },
 
   signatureTitle: {
-    fontSize: 11,
+    fontSize: 14,
     color: '#4a5568',
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
     fontStyle: 'italic',
+    fontWeight: '500',
   },
 
-  // Export Buttons Styles
-  exportButtonsContainer: {
+  // Image Modal Styles
+  imageModalContainer: {
+    flex: 1,
+    backgroundColor: Colors.white,
+  },
+
+  imageModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: Colors.primaryBlue,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderGrey,
+  },
+
+  imageModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.white,
+  },
+
+  imageModalCloseButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 6,
+  },
+
+  imageModalCloseText: {
+    fontSize: 12,
+    color: Colors.white,
+    fontWeight: '600',
+  },
+
+  imageModalContent: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+
+  imageContainer: {
+    flex: 1,
+    padding: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  generatedImage: {
+    width: screenWidth - 20,
+    height: screenHeight - 200, // Account for header (50px) + footer (80px) + status bar + padding
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: Colors.primaryBlue,
+  },
+
+  imageModalFooter: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginTop: 20,
-    paddingHorizontal: 20,
-    gap: 15,
+    paddingHorizontal: 40,
+    paddingVertical: 15,
+    backgroundColor: Colors.white,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderGrey,
+    minHeight: 80,
   },
 
   exportButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
     borderWidth: 2,
     borderColor: '#4299e1',
     backgroundColor: Colors.white,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 3,
+      height: 2,
     },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 5,
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+    minWidth: 120,
+    maxWidth: 140,
+  },
+
+  exportButtonDisabled: {
+    opacity: 0.6,
   },
 
   whatsappIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: '#25D366',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
+    marginRight: 6,
   },
 
-  gmailIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  emailIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: '#EA4335',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
+    marginRight: 6,
   },
 
   iconText: {
-    fontSize: 16,
+    fontSize: 10,
     color: Colors.white,
   },
 
   exportButtonText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: '#2c5aa0',
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
   },
 });
 
