@@ -12,12 +12,14 @@ import {
   Dimensions,
   Modal,
   Image,
-  Linking
+  Linking,
+  Share
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GlobalStyles, Colors } from '../GlobalStyles';
 import ViewShot from 'react-native-view-shot';
+// import CameraRoll from '@react-native-community/cameraroll';
 
 const PRESETS_STORAGE_KEY = '@prescription_presets';
 const PATIENTS_STORAGE_KEY = '@patients_data';
@@ -208,36 +210,51 @@ function CreateScriptScreen({ navigation, route }) {
         }
       }
 
-      // Show success message and open WhatsApp
-      Alert.alert(
-        'Prescription Captured!',
-        `Prescription image for ${patientName} has been captured successfully.\n\nOpening WhatsApp now - you can share the image from your recent photos.`,
-        [
-          {
-            text: 'Open WhatsApp',
-            onPress: async () => {
-              let whatsappUrl;
-              if (phoneNumber) {
-                whatsappUrl = `whatsapp://send?phone=${phoneNumber}`;
-              } else {
-                whatsappUrl = 'whatsapp://';
-              }
-              
-              try {
+      // Use React Native's built-in Share with the file URI
+      try {
+        const shareResult = await Share.share({
+          url: `file://${uri}`,
+          title: `Prescription for ${patientName}`,
+        });
+
+        // If sharing was successful, open WhatsApp
+        if (shareResult.action === Share.sharedAction) {
+          setTimeout(async () => {
+            let whatsappUrl = phoneNumber ? 
+              `whatsapp://send?phone=${phoneNumber}` : 
+              'whatsapp://';
+            
+            const supported = await Linking.canOpenURL(whatsappUrl);
+            if (supported) {
+              await Linking.openURL(whatsappUrl);
+            }
+          }, 500);
+        }
+      } catch (shareError) {
+        // Fallback: Save to gallery and open WhatsApp
+        Alert.alert(
+          'Share Prescription',
+          `Prescription captured for ${patientName}. Opening WhatsApp - you can attach the image from your gallery.`,
+          [
+            {
+              text: 'Open WhatsApp',
+              onPress: async () => {
+                let whatsappUrl = phoneNumber ? 
+                  `whatsapp://send?phone=${phoneNumber}` : 
+                  'whatsapp://';
+                
                 const supported = await Linking.canOpenURL(whatsappUrl);
                 if (supported) {
                   await Linking.openURL(whatsappUrl);
                 } else {
-                  Alert.alert('Error', 'WhatsApp is not installed on this device');
+                  Alert.alert('Error', 'WhatsApp is not installed');
                 }
-              } catch (error) {
-                Alert.alert('Error', 'Failed to open WhatsApp');
               }
-            }
-          },
-          { text: 'Cancel' }
-        ]
-      );
+            },
+            { text: 'Cancel' }
+          ]
+        );
+      }
 
     } catch (error) {
       Alert.alert('Error', 'Failed to process prescription: ' + error.message);
@@ -259,15 +276,33 @@ function CreateScriptScreen({ navigation, route }) {
       const subject = `Prescription for ${patientName}`;
       const body = `Please find attached original prescription for ${patientName}, for any queries please contact us at 011 914 3093 and ask for Dr P Hira`;
       
-      // Show success message and open email
-      Alert.alert(
-        'Prescription Captured!',
-        `Prescription image for ${patientName} has been captured successfully.\n\nOpening email now - you can attach the image from your recent photos.`,
-        [
-          {
-            text: 'Open Email',
-            onPress: async () => {
-              try {
+      // Use React Native's built-in Share with the file URI
+      try {
+        const shareResult = await Share.share({
+          url: `file://${uri}`,
+          title: subject,
+          message: body,
+        });
+
+        // If sharing was successful, open email client
+        if (shareResult.action === Share.sharedAction) {
+          setTimeout(async () => {
+            const emailUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            const supported = await Linking.canOpenURL(emailUrl);
+            if (supported) {
+              await Linking.openURL(emailUrl);
+            }
+          }, 500);
+        }
+      } catch (shareError) {
+        // Fallback: Open email directly
+        Alert.alert(
+          'Share Prescription',
+          `Prescription captured for ${patientName}. Opening email - you can attach the image from your gallery.`,
+          [
+            {
+              text: 'Open Email',
+              onPress: async () => {
                 const emailUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
                 const supported = await Linking.canOpenURL(emailUrl);
                 if (supported) {
@@ -275,14 +310,12 @@ function CreateScriptScreen({ navigation, route }) {
                 } else {
                   Alert.alert('Error', 'No email client found');
                 }
-              } catch (error) {
-                Alert.alert('Error', 'Failed to open email client');
               }
-            }
-          },
-          { text: 'Cancel' }
-        ]
-      );
+            },
+            { text: 'Cancel' }
+          ]
+        );
+      }
 
     } catch (error) {
       Alert.alert('Error', 'Failed to process prescription: ' + error.message);
