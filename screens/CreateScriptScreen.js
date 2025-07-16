@@ -12,13 +12,14 @@ import {
   Dimensions,
   Modal,
   Image,
-  Linking,
-  Share
+  Linking
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GlobalStyles, Colors } from '../GlobalStyles';
 import ViewShot from 'react-native-view-shot';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 const PRESETS_STORAGE_KEY = '@prescription_presets';
 const PATIENTS_STORAGE_KEY = '@patients_data';
@@ -65,6 +66,7 @@ function CreateScriptScreen({ navigation, route }) {
   // Modal and image states
   const [showImageModal, setShowImageModal] = React.useState(false);
   const [generatedImageUri, setGeneratedImageUri] = React.useState(null);
+  const [savedImagePath, setSavedImagePath] = React.useState(null);
   const [renderForCapture, setRenderForCapture] = React.useState(false);
 
   // Ref for capturing prescription view
@@ -108,6 +110,7 @@ function CreateScriptScreen({ navigation, route }) {
 
   const handlePatientSelect = (patient) => {
     setSelectedPatient(patient);
+    setAge(patient.age ? patient.age.toString() : '');
     setShowPatientDropdown(false);
   };
 
@@ -144,6 +147,34 @@ function CreateScriptScreen({ navigation, route }) {
     return true;
   };
 
+  const saveImageToFile = async (dataUri) => {
+    try {
+      // Extract base64 data from data URI
+      const base64Data = dataUri.split(',')[1];
+      
+      // Generate unique filename
+      const timestamp = new Date().getTime();
+      const patientName = useCustomPatient ? customPatientName : 
+        (selectedPatient ? `${selectedPatient.name}_${selectedPatient.surname}` : 'patient');
+      const sanitizedName = patientName.replace(/[^a-zA-Z0-9]/g, '_');
+      const filename = `prescription_${sanitizedName}_${timestamp}.png`;
+      
+      // Create file path in document directory
+      const fileUri = `${FileSystem.documentDirectory}${filename}`;
+      
+      // Write base64 data to file
+      await FileSystem.writeAsStringAsync(fileUri, base64Data, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      
+      console.log('Image saved to:', fileUri);
+      return fileUri;
+    } catch (error) {
+      console.error('Error saving image:', error);
+      throw error;
+    }
+  };
+
   const generatePrescriptionImage = async () => {
     if (!validateForm()) return;
 
@@ -172,8 +203,12 @@ function CreateScriptScreen({ navigation, route }) {
         
         console.log('Prescription image captured successfully');
         
-        // Store the image and show modal
+        // Save the image to file system
+        const savedPath = await saveImageToFile(imageUri);
+        
+        // Store both URIs
         setGeneratedImageUri(imageUri);
+        setSavedImagePath(savedPath);
         setShowImageModal(true);
         setRenderForCapture(false);
         
@@ -211,6 +246,7 @@ function CreateScriptScreen({ navigation, route }) {
             setUseCustomPrescription(false);
             setRepeats(0);
             setGeneratedImageUri(null);
+            setSavedImagePath(null);
             setShowImageModal(false);
           }
         }
@@ -219,7 +255,7 @@ function CreateScriptScreen({ navigation, route }) {
   };
 
   const shareViaWhatsApp = async () => {
-    if (!generatedImageUri) {
+    if (!savedImagePath) {
       Alert.alert('Error', 'No prescription image generated');
       return;
     }
@@ -227,7 +263,7 @@ function CreateScriptScreen({ navigation, route }) {
     setExportLoading(true);
     
     try {
-      console.log('Starting WhatsApp share...');
+      console.log('Starting WhatsApp share with file:', savedImagePath);
       
       const patientName = useCustomPatient ? customPatientName : 
         (selectedPatient ? `${selectedPatient.name} ${selectedPatient.surname}` : '');
@@ -245,27 +281,27 @@ function CreateScriptScreen({ navigation, route }) {
         }
       }
 
-      // Share the image using React Native Share
-      const shareOptions = {
-        title: `Prescription for ${patientName}`,
-        message: `Prescription for ${patientName} - ${formatDate(date)}`,
-        url: generatedImageUri,
-        type: 'image/png',
-      };
+      // Check if sharing is available
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert('Error', 'Sharing is not available on this device');
+        return;
+      }
 
-      const result = await Share.share(shareOptions);
+      // Share the image file
+      await Sharing.shareAsync(savedImagePath, {
+        mimeType: 'image/png',
+        dialogTitle: `Prescription for ${patientName}`,
+        UTI: 'public.png'
+      });
       
-      if (result.action === Share.sharedAction) {
-        console.log('Image shared successfully');
-        Alert.alert('Success', 'Prescription image shared successfully!');
-        
-        // Open WhatsApp after successful share
+      console.log('Image shared successfully');
+      
+      // Open WhatsApp after successful share if we have a phone number
+      if (phoneNumber) {
         setTimeout(async () => {
           try {
-            let whatsappUrl = phoneNumber ? 
-              `whatsapp://send?phone=${phoneNumber}` : 
-              'whatsapp://';
-            
+            let whatsappUrl = `whatsapp://send?phone=${phoneNumber}`;
             const supported = await Linking.canOpenURL(whatsappUrl);
             if (supported) {
               await Linking.openURL(whatsappUrl);
@@ -278,14 +314,14 @@ function CreateScriptScreen({ navigation, route }) {
 
     } catch (error) {
       console.error('WhatsApp share error:', error);
-      Alert.alert('Error', 'Failed to share prescription via WhatsApp: ' + error.message);
+      Alert.alert('Error', 'Failed to share prescription via WhatsApp');
     } finally {
       setExportLoading(false);
     }
   };
 
   const shareViaEmail = async () => {
-    if (!generatedImageUri) {
+    if (!savedImagePath) {
       Alert.alert('Error', 'No prescription image generated');
       return;
     }
@@ -293,7 +329,7 @@ function CreateScriptScreen({ navigation, route }) {
     setExportLoading(true);
     
     try {
-      console.log('Starting Email share...');
+      console.log('Starting Email share with file:', savedImagePath);
       
       const patientName = useCustomPatient ? customPatientName : 
         (selectedPatient ? `${selectedPatient.name} ${selectedPatient.surname}` : '');
@@ -301,37 +337,28 @@ function CreateScriptScreen({ navigation, route }) {
       const subject = `Prescription for ${patientName}`;
       const body = `Please find attached prescription for ${patientName}, for any queries please contact us at 011 914 3093 and ask for Dr P Hira`;
       
-      // Share the image using React Native Share
-      const shareOptions = {
-        title: subject,
-        message: body,
-        url: generatedImageUri,
-        type: 'image/png',
-      };
-
-      const result = await Share.share(shareOptions);
-      
-      if (result.action === Share.sharedAction) {
-        console.log('Image shared successfully');
-        Alert.alert('Success', 'Prescription image shared successfully!');
-        
-        // Open email client after successful share
-        setTimeout(async () => {
-          try {
-            const emailUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-            const supported = await Linking.canOpenURL(emailUrl);
-            if (supported) {
-              await Linking.openURL(emailUrl);
-            }
-          } catch (linkError) {
-            console.log('Could not open email client:', linkError);
-          }
-        }, 1000);
+      // Check if sharing is available
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert('Error', 'Sharing is not available on this device');
+        return;
       }
+
+      // Share the image file
+      await Sharing.shareAsync(savedImagePath, {
+        mimeType: 'image/png',
+        dialogTitle: subject,
+        UTI: 'public.png'
+      });
+      
+      console.log('Image shared successfully');
+      
+      // Note: Opening email client after sharing is not always reliable
+      // as the share dialog already handles email selection
 
     } catch (error) {
       console.error('Email share error:', error);
-      Alert.alert('Error', 'Failed to share prescription via email: ' + error.message);
+      Alert.alert('Error', 'Failed to share prescription via email');
     } finally {
       setExportLoading(false);
     }
