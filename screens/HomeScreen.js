@@ -43,6 +43,14 @@ function HomeScreen({ navigation }) {
     },
     {
       id: 4,
+      title: 'ICD-10 Codes',
+      description: 'Search and lookup ICD-10 diagnostic codes',
+      icon: '🔍',
+      route: 'ICD10Codes',
+      color: Colors.accentBlue
+    },
+    {
+      id: 5,
       title: 'Settings',
       description: 'App configuration and data management',
       icon: '⚙️',
@@ -78,12 +86,7 @@ function HomeScreen({ navigation }) {
           {/* Menu Items */}
           <View style={styles.menuContainer}>
             {menuItems.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={[GlobalStyles.card, styles.menuCard]}
-                onPress={() => navigateToScreen(item.route)}
-                activeOpacity={0.8}
-              >
+              <View key={item.id} style={[GlobalStyles.card, styles.menuCard]}>
                 <View style={styles.menuItemContent}>
                   <View style={styles.menuIconContainer}>
                     <Text style={styles.menuIcon}>{item.icon}</Text>
@@ -94,18 +97,24 @@ function HomeScreen({ navigation }) {
                     <Text style={styles.menuDescription}>{item.description}</Text>
                   </View>
                   
-                  <View style={[styles.menuButton, { backgroundColor: item.color }]}>
-                    <Text style={styles.menuButtonText}>→</Text>
-                  </View>
+                  <TouchableOpacity
+                    style={[styles.menuButton, { backgroundColor: item.color }]}
+                    onPress={() => navigateToScreen(item.route)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.menuButtonText}>Open</Text>
+                  </TouchableOpacity>
                 </View>
-              </TouchableOpacity>
+              </View>
             ))}
           </View>
 
           {/* Version Info */}
           <View style={styles.versionContainer}>
-            <Text style={styles.versionText}>Version 1.0.0</Text>
-            <Text style={styles.versionSubtext}>Personal Medical Practice Management</Text>
+            <Text style={styles.versionText}>Dr. P. Hira Prescription App v1.0.0</Text>
+            <Text style={styles.versionSubtext}>
+              Personal Use Edition - Streamlining patient care
+            </Text>
           </View>
         </View>
       </ScrollView>
@@ -114,7 +123,7 @@ function HomeScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  // Textured Background Styles
+  // Background Styles
   backgroundBase: {
     position: 'absolute',
     top: 0,

@@ -9,6 +9,7 @@ import HomeScreen from './screens/HomeScreen';
 import PatientListScreen from './screens/PatientListScreen';
 import PresetPrescriptionScreen from './screens/PresetPrescriptionScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import ICD10CodesScreen from './screens/ICD10CodesScreen';
 
 const Stack = createStackNavigator();
 
@@ -72,6 +73,14 @@ function App() {
           component={PatientListScreen} 
           options={{ 
             title: 'Patient List',
+            headerBackTitle: 'Back',
+          }}
+        />
+        <Stack.Screen 
+          name="ICD10Codes" 
+          component={ICD10CodesScreen} 
+          options={{ 
+            title: 'ICD-10 Codes',
             headerBackTitle: 'Back',
           }}
         />
