@@ -512,8 +512,8 @@ function CreateScriptScreen({ navigation, route }) {
           <View style={styles.contactInfoRow}>
             <View style={styles.leftContactInfo}>
               <Text style={styles.contactText}>Consulting rooms:</Text>
-              <Text style={styles.contactText}>587 Dunswart</Text>
-              <Text style={styles.contactText}>Apartments</Text>
+              <Text style={styles.contactText}>5/87 Dunswart</Text>
+              <Text style={styles.contactText}>Avenue</Text>
               <Text style={styles.contactText}>Dunswart, Boksburg,</Text>
               <Text style={styles.contactText}>1459</Text>
               <Text style={styles.contactText}>PO Box 18131</Text>
@@ -594,7 +594,7 @@ function CreateScriptScreen({ navigation, route }) {
                 <Text style={styles.diagnosisHeader}>Diagnosis:</Text>
                 {selectedIcd10Codes.map((code, index) => (
                   <Text key={code.code} style={styles.diagnosisText}>
-                    {code.code} - {code.description}
+                    {code.code}
                   </Text>
                 ))}
               </View>
