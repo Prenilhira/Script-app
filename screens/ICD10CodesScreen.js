@@ -14,11 +14,11 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GlobalStyles, Colors } from '../GlobalStyles';
 
-// Import the ICD-10 data
+// Import ICD-10 data directly (no AsyncStorage caching for large dataset)
 import icd10DataJson from '../data/icd10-codes.json';
 
-const ICD10_DATA_KEY = '@icd10_data_cached';
-const ICD10_VERSION_KEY = '@icd10_version';
+const FAVORITES_KEY = '@icd10_favorites';
+const RECENT_SEARCHES_KEY = '@icd10_recent';
 
 // Textured Background Component
 const TexturedBackground = ({ children }) => (
@@ -35,65 +35,73 @@ const TexturedBackground = ({ children }) => (
 function ICD10CodesScreen({ navigation }) {
   // States
   const [searchText, setSearchText] = React.useState('');
-  const [icd10Data, setIcd10Data] = React.useState([]);
   const [filteredData, setFilteredData] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
+  const [loading, setLoading] = React.useState(false);
   const [selectedCode, setSelectedCode] = React.useState(null);
   const [showDetailModal, setShowDetailModal] = React.useState(false);
-  const [dataStats, setDataStats] = React.useState(null);
+  const [favorites, setFavorites] = React.useState([]);
+  const [recentSearches, setRecentSearches] = React.useState([]);
+  const [showFavorites, setShowFavorites] = React.useState(false);
 
-  // Load ICD-10 data
   React.useEffect(() => {
-    loadICD10Data();
+    loadUserData();
   }, []);
 
-  // Filter data based on search text
   React.useEffect(() => {
     filterData();
-  }, [searchText, icd10Data]);
+  }, [searchText]);
 
-  const loadICD10Data = async () => {
+  const loadUserData = async () => {
     try {
-      setLoading(true);
-      
-      // Check if we have cached data and if it's the current version
-      const cachedVersion = await AsyncStorage.getItem(ICD10_VERSION_KEY);
-      const currentVersion = icd10DataJson.version;
-      
-      if (cachedVersion === currentVersion) {
-        const cachedData = await AsyncStorage.getItem(ICD10_DATA_KEY);
-        if (cachedData) {
-          const parsedData = JSON.parse(cachedData);
-          setIcd10Data(parsedData);
-          setDataStats({
-            totalCodes: parsedData.length,
-            version: currentVersion,
-            lastLoaded: new Date().toLocaleDateString()
-          });
-          setLoading(false);
-          return;
-        }
-      }
+      // Load small user data (favorites and recent searches)
+      const [storedFavorites, storedRecent] = await Promise.all([
+        AsyncStorage.getItem(FAVORITES_KEY),
+        AsyncStorage.getItem(RECENT_SEARCHES_KEY)
+      ]);
 
-      // Load from JSON file
-      const processedData = icd10DataJson.codes;
-      setIcd10Data(processedData);
+      if (storedFavorites) {
+        setFavorites(JSON.parse(storedFavorites));
+      }
       
-      // Cache the data and version
-      await AsyncStorage.setItem(ICD10_DATA_KEY, JSON.stringify(processedData));
-      await AsyncStorage.setItem(ICD10_VERSION_KEY, currentVersion);
-      
-      setDataStats({
-        totalCodes: processedData.length,
-        version: currentVersion,
-        lastLoaded: new Date().toLocaleDateString()
-      });
-      
-      setLoading(false);
+      if (storedRecent) {
+        setRecentSearches(JSON.parse(storedRecent));
+      }
     } catch (error) {
-      console.error('Error loading ICD-10 data:', error);
-      Alert.alert('Error', 'Failed to load ICD-10 data. Please try again.');
-      setLoading(false);
+      console.log('Error loading user data:', error);
+      // Continue without user data if storage fails
+    }
+  };
+
+  const saveToFavorites = async (code) => {
+    try {
+      const newFavorites = [...favorites, code];
+      setFavorites(newFavorites);
+      await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(newFavorites));
+    } catch (error) {
+      console.log('Could not save favorite:', error);
+      Alert.alert('Note', 'Could not save to favorites due to storage limitations');
+    }
+  };
+
+  const removeFromFavorites = async (codeToRemove) => {
+    try {
+      const newFavorites = favorites.filter(code => code.code !== codeToRemove.code);
+      setFavorites(newFavorites);
+      await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(newFavorites));
+    } catch (error) {
+      console.log('Could not remove favorite:', error);
+    }
+  };
+
+  const saveRecentSearch = async (searchTerm) => {
+    if (!searchTerm.trim()) return;
+    
+    try {
+      const newRecent = [searchTerm, ...recentSearches.filter(s => s !== searchTerm)].slice(0, 10);
+      setRecentSearches(newRecent);
+      await AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(newRecent));
+    } catch (error) {
+      console.log('Could not save recent search:', error);
     }
   };
 
@@ -103,42 +111,60 @@ function ICD10CodesScreen({ navigation }) {
       return;
     }
 
-    const searchLower = searchText.toLowerCase().trim();
-    let filtered = icd10Data.filter(item => {
-      return (
-        item.code.toLowerCase().includes(searchLower) ||
-        item.description.toLowerCase().includes(searchLower) ||
-        item.code3.toLowerCase().includes(searchLower) ||
-        item.code3Description.toLowerCase().includes(searchLower) ||
-        item.chapter.toLowerCase().includes(searchLower)
-      );
-    });
+    setLoading(true);
+    
+    // Use setTimeout to prevent UI blocking during search
+    setTimeout(() => {
+      try {
+        const searchLower = searchText.toLowerCase().trim();
+        
+        // Save recent search
+        saveRecentSearch(searchText);
+        
+        // Filter the data
+        let filtered = icd10DataJson.codes.filter(item => {
+          return (
+            item.code.toLowerCase().includes(searchLower) ||
+            item.description.toLowerCase().includes(searchLower) ||
+            item.chapter.toLowerCase().includes(searchLower) ||
+            (item.code3 && item.code3.toLowerCase().includes(searchLower)) ||
+            (item.code3Description && item.code3Description.toLowerCase().includes(searchLower))
+          );
+        });
 
-    // Sort results by relevance
-    filtered.sort((a, b) => {
-      const aCode = a.code.toLowerCase();
-      const bCode = b.code.toLowerCase();
-      const aDesc = a.description.toLowerCase();
-      const bDesc = b.description.toLowerCase();
-      
-      // Exact code match first
-      if (aCode === searchLower) return -1;
-      if (bCode === searchLower) return 1;
-      
-      // Code starts with search term
-      if (aCode.startsWith(searchLower) && !bCode.startsWith(searchLower)) return -1;
-      if (bCode.startsWith(searchLower) && !aCode.startsWith(searchLower)) return 1;
-      
-      // Description starts with search term
-      if (aDesc.startsWith(searchLower) && !bDesc.startsWith(searchLower)) return -1;
-      if (bDesc.startsWith(searchLower) && !aDesc.startsWith(searchLower)) return 1;
-      
-      // Alphabetical by code
-      return aCode.localeCompare(bCode);
-    });
+        // Sort results by relevance
+        filtered.sort((a, b) => {
+          const aCode = a.code.toLowerCase();
+          const bCode = b.code.toLowerCase();
+          const aDesc = a.description.toLowerCase();
+          const bDesc = b.description.toLowerCase();
+          
+          // Exact code match first
+          if (aCode === searchLower) return -1;
+          if (bCode === searchLower) return 1;
+          
+          // Code starts with search term
+          if (aCode.startsWith(searchLower) && !bCode.startsWith(searchLower)) return -1;
+          if (bCode.startsWith(searchLower) && !aCode.startsWith(searchLower)) return 1;
+          
+          // Description starts with search term
+          if (aDesc.startsWith(searchLower) && !bDesc.startsWith(searchLower)) return -1;
+          if (bDesc.startsWith(searchLower) && !aDesc.startsWith(searchLower)) return 1;
+          
+          // Alphabetical by code
+          return aCode.localeCompare(bCode);
+        });
 
-    // Limit results for performance
-    setFilteredData(filtered.slice(0, 100));
+        // Limit results for performance (increased limit since no DB storage)
+        setFilteredData(filtered.slice(0, 200));
+        setLoading(false);
+      } catch (error) {
+        console.error('Search error:', error);
+        setFilteredData([]);
+        setLoading(false);
+        Alert.alert('Search Error', 'There was an issue searching the codes. Please try a different search term.');
+      }
+    }, 100);
   };
 
   const handleCodeSelect = (code) => {
@@ -151,169 +177,228 @@ function ICD10CodesScreen({ navigation }) {
     Alert.alert('Copied', 'Code copied to clipboard');
   };
 
-  const clearCache = async () => {
-    Alert.alert(
-      'Refresh Data',
-      'This will refresh the ICD-10 data cache. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Refresh',
-          onPress: async () => {
-            await AsyncStorage.multiRemove([ICD10_DATA_KEY, ICD10_VERSION_KEY]);
-            loadICD10Data();
-          }
-        }
-      ]
+  const isFavorite = (code) => {
+    return favorites.some(fav => fav.code === code.code);
+  };
+
+  const toggleFavorite = (code) => {
+    if (isFavorite(code)) {
+      removeFromFavorites(code);
+    } else {
+      saveToFavorites(code);
+    }
+  };
+
+  const renderCodeItem = (item, index) => {
+    const isCodeFavorite = isFavorite(item);
+    
+    return (
+      <TouchableOpacity
+        key={`${item.code}-${index}`}
+        style={[GlobalStyles.card, styles.codeItem]}
+        onPress={() => handleCodeSelect(item)}
+      >
+        <View style={styles.codeHeader}>
+          <Text style={styles.codeNumber}>{item.code}</Text>
+          <View style={styles.codeActions}>
+            {item.validClinical && (
+              <View style={styles.validBadge}>
+                <Text style={styles.validBadgeText}>Clinical</Text>
+              </View>
+            )}
+            <TouchableOpacity
+              style={[styles.favoriteButton, isCodeFavorite && styles.favoriteButtonActive]}
+              onPress={() => toggleFavorite(item)}
+            >
+              <Text style={[styles.favoriteButtonText, isCodeFavorite && styles.favoriteButtonTextActive]}>
+                {isCodeFavorite ? '★' : '☆'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.copyButton}
+              onPress={() => copyToClipboard(item.code)}
+            >
+              <Text style={styles.copyButtonText}>Copy</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <Text style={styles.codeDescription} numberOfLines={2}>
+          {item.description}
+        </Text>
+        <Text style={styles.codeChapter} numberOfLines={1}>
+          {item.chapter}
+        </Text>
+        {item.code3 && item.code3 !== item.code && (
+          <Text style={styles.code3Info}>
+            3-Char: {item.code3} - {item.code3Description}
+          </Text>
+        )}
+      </TouchableOpacity>
     );
   };
 
-  const renderCodeItem = (item, index) => (
-    <TouchableOpacity
-      key={`${item.code}-${index}`}
-      style={[GlobalStyles.card, styles.codeItem]}
-      onPress={() => handleCodeSelect(item)}
-    >
-      <View style={styles.codeHeader}>
-        <Text style={styles.codeNumber}>{item.code}</Text>
-        <View style={styles.codeActions}>
-          {item.validClinical && (
-            <View style={styles.validBadge}>
-              <Text style={styles.validBadgeText}>Clinical</Text>
-            </View>
-          )}
-          <TouchableOpacity
-            style={styles.copyButton}
-            onPress={() => copyToClipboard(item.code)}
-          >
-            <Text style={styles.copyButtonText}>Copy</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-      <Text style={styles.codeDescription} numberOfLines={2}>
-        {item.description}
-      </Text>
-      <Text style={styles.codeChapter} numberOfLines={1}>
-        {item.chapter}
-      </Text>
-      {item.code3 !== item.code && (
-        <Text style={styles.code3Info}>
-          3-Char: {item.code3} - {item.code3Description}
-        </Text>
-      )}
-    </TouchableOpacity>
-  );
+  const renderRecentSearches = () => {
+    if (recentSearches.length === 0) return null;
 
-  if (loading) {
     return (
-      <TexturedBackground>
-        <View style={GlobalStyles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primaryBlue} />
-          <Text style={GlobalStyles.loadingText}>Loading ICD-10 codes...</Text>
-          <Text style={styles.loadingSubtext}>
-            Loading from optimized JSON data
-          </Text>
-        </View>
-      </TexturedBackground>
+      <View style={styles.recentSearches}>
+        <Text style={styles.recentSearchesTitle}>Recent Searches:</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {recentSearches.map((search, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.recentSearchChip}
+              onPress={() => setSearchText(search)}
+            >
+              <Text style={styles.recentSearchText}>{search}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
     );
-  }
+  };
+
+  const renderFavorites = () => {
+    if (favorites.length === 0) {
+      return (
+        <View style={styles.emptyFavorites}>
+          <Text style={styles.emptyFavoritesText}>No favorite codes yet</Text>
+          <Text style={styles.emptyFavoritesSubtext}>Tap the ★ button on any code to add it to favorites</Text>
+        </View>
+      );
+    }
+
+    return (
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {favorites.map(renderCodeItem)}
+      </ScrollView>
+    );
+  };
 
   return (
     <TexturedBackground>
       <View style={styles.screenContainer}>
         <Text style={GlobalStyles.pageTitle}>ICD-10 Code Search</Text>
         
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={GlobalStyles.searchInput}
-            value={searchText}
-            onChangeText={setSearchText}
-            placeholder="Search by ICD-10 code or description..."
-            placeholderTextColor={Colors.textLight}
-            autoCapitalize="none"
-          />
-          
-          {searchText.trim() && (
-            <TouchableOpacity
-              style={styles.clearSearchButton}
-              onPress={() => setSearchText('')}
-            >
-              <Text style={styles.clearSearchText}>×</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <View style={styles.statsContainer}>
-          <View>
-            <Text style={GlobalStyles.countText}>
-              {searchText.trim() 
-                ? `${filteredData.length} code${filteredData.length !== 1 ? 's' : ''} found` 
-                : `${dataStats?.totalCodes || 0} total codes available`}
-            </Text>
-            {dataStats && (
-              <Text style={styles.versionText}>
-                Version {dataStats.version} • Updated {dataStats.lastLoaded}
-              </Text>
-            )}
-          </View>
-          
+        {/* Toggle between Search and Favorites */}
+        <View style={styles.toggleContainer}>
           <TouchableOpacity
-            style={styles.refreshButton}
-            onPress={clearCache}
+            style={[styles.toggleButton, !showFavorites && styles.toggleButtonActive]}
+            onPress={() => setShowFavorites(false)}
           >
-            <Text style={styles.refreshButtonText}>Refresh</Text>
+            <Text style={[styles.toggleText, !showFavorites && styles.toggleTextActive]}>
+              Search
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.toggleButton, showFavorites && styles.toggleButtonActive]}
+            onPress={() => setShowFavorites(true)}
+          >
+            <Text style={[styles.toggleText, showFavorites && styles.toggleTextActive]}>
+              Favorites ({favorites.length})
+            </Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.listContainer}>
-          {!searchText.trim() ? (
-            <View style={GlobalStyles.emptyState}>
-              <Text style={styles.emptyStateIcon}>🔍</Text>
-              <Text style={GlobalStyles.emptyStateText}>
-                Start typing to search through {dataStats?.totalCodes || 0} ICD-10 codes.
-                {'\n\n'}
-                You can search by:
-                {'\n'}• ICD-10 code (e.g., A00, B15.9)
-                {'\n'}• Description or diagnosis
-                {'\n'}• Chapter description
-                {'\n'}• 3-character codes
-              </Text>
+        {!showFavorites ? (
+          <>
+            <View style={styles.searchContainer}>
+              <TextInput
+                style={GlobalStyles.searchInput}
+                value={searchText}
+                onChangeText={setSearchText}
+                placeholder="Search by ICD-10 code or description..."
+                placeholderTextColor={Colors.textLight}
+                autoCapitalize="none"
+              />
               
-              <View style={styles.searchExamples}>
-                <Text style={styles.examplesTitle}>Try these examples:</Text>
-                <TouchableOpacity onPress={() => setSearchText('diabetes')}>
-                  <Text style={styles.exampleText}>• diabetes</Text>
+              {searchText.trim() && (
+                <TouchableOpacity
+                  style={styles.clearSearchButton}
+                  onPress={() => setSearchText('')}
+                >
+                  <Text style={styles.clearSearchText}>×</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setSearchText('I10')}>
-                  <Text style={styles.exampleText}>• I10 (hypertension)</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setSearchText('fever')}>
-                  <Text style={styles.exampleText}>• fever</Text>
-                </TouchableOpacity>
+              )}
+            </View>
+
+            {renderRecentSearches()}
+
+            <View style={styles.statsContainer}>
+              <View>
+                <Text style={GlobalStyles.countText}>
+                  {loading ? 'Searching...' : 
+                   searchText.trim() ? `${filteredData.length} code${filteredData.length !== 1 ? 's' : ''} found` : 
+                   `${icd10DataJson.totalCodes} total codes available`}
+                </Text>
+                {icd10DataJson.version && (
+                  <Text style={styles.versionText}>
+                    Version {icd10DataJson.version} • Updated {new Date().toLocaleDateString()}
+                  </Text>
+                )}
               </View>
             </View>
-          ) : filteredData.length > 0 ? (
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {filteredData.map(renderCodeItem)}
-              {filteredData.length === 100 && (
-                <View style={styles.limitNotice}>
-                  <Text style={styles.limitNoticeText}>
-                    Showing first 100 results. Refine your search for more specific results.
+
+            <View style={styles.listContainer}>
+              {!searchText.trim() ? (
+                <View style={GlobalStyles.emptyState}>
+                  <Text style={styles.emptyStateIcon}>🔍</Text>
+                  <Text style={GlobalStyles.emptyStateText}>
+                    Start typing to search through {icd10DataJson.totalCodes} ICD-10 codes.
+                    {'\n\n'}
+                    You can search by:
+                    {'\n'}• ICD-10 code (e.g., A00, B15.9)
+                    {'\n'}• Description or diagnosis
+                    {'\n'}• Chapter description
+                    {'\n'}• 3-character codes
+                  </Text>
+                  
+                  <View style={styles.searchExamples}>
+                    <Text style={styles.examplesTitle}>Try these examples:</Text>
+                    <TouchableOpacity onPress={() => setSearchText('diabetes')}>
+                      <Text style={styles.exampleText}>• diabetes</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setSearchText('I10')}>
+                      <Text style={styles.exampleText}>• I10 (hypertension)</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setSearchText('fever')}>
+                      <Text style={styles.exampleText}>• fever</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : loading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color={Colors.primaryBlue} />
+                  <Text style={styles.loadingText}>Searching codes...</Text>
+                </View>
+              ) : filteredData.length > 0 ? (
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  {filteredData.map(renderCodeItem)}
+                  {filteredData.length === 200 && (
+                    <View style={styles.limitNotice}>
+                      <Text style={styles.limitNoticeText}>
+                        Showing first 200 results. Refine your search for more specific results.
+                      </Text>
+                    </View>
+                  )}
+                </ScrollView>
+              ) : (
+                <View style={GlobalStyles.emptyState}>
+                  <Text style={styles.emptyStateIcon}>❌</Text>
+                  <Text style={GlobalStyles.emptyStateText}>
+                    No ICD-10 codes found for "{searchText}".
+                    {'\n\n'}
+                    Try a different search term or check your spelling.
                   </Text>
                 </View>
               )}
-            </ScrollView>
-          ) : (
-            <View style={GlobalStyles.emptyState}>
-              <Text style={styles.emptyStateIcon}>❌</Text>
-              <Text style={GlobalStyles.emptyStateText}>
-                No ICD-10 codes found for "{searchText}".
-                {'\n\n'}
-                Try a different search term or check your spelling.
-              </Text>
             </View>
-          )}
-        </View>
+          </>
+        ) : (
+          <View style={styles.listContainer}>
+            {renderFavorites()}
+          </View>
+        )}
 
         {/* Detail Modal */}
         <Modal
@@ -447,6 +532,38 @@ const styles = StyleSheet.create({
     padding: 16,
   },
 
+  // Toggle Styles
+  toggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: Colors.backgroundGrey,
+    borderRadius: 8,
+    padding: 4,
+    marginBottom: 16,
+  },
+
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+
+  toggleButtonActive: {
+    backgroundColor: Colors.primaryBlue,
+  },
+
+  toggleText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+
+  toggleTextActive: {
+    color: Colors.white,
+    fontWeight: '600',
+  },
+
   // Search Container
   searchContainer: {
     position: 'relative',
@@ -472,6 +589,32 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
+  // Recent Searches
+  recentSearches: {
+    marginBottom: 12,
+  },
+
+  recentSearchesTitle: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginBottom: 6,
+    fontWeight: '600',
+  },
+
+  recentSearchChip: {
+    backgroundColor: Colors.accentBlue,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+  },
+
+  recentSearchText: {
+    fontSize: 12,
+    color: Colors.primaryBlue,
+    fontWeight: '500',
+  },
+
   // Stats Container
   statsContainer: {
     flexDirection: 'row',
@@ -486,22 +629,23 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  refreshButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: Colors.lightBlue,
-  },
-
-  refreshButtonText: {
-    fontSize: 12,
-    color: Colors.white,
-    fontWeight: '600',
-  },
-
   // List Container
   listContainer: {
     flex: 1,
+  },
+
+  // Loading Container
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: Colors.textSecondary,
   },
 
   // Code Item Styles
@@ -531,16 +675,36 @@ const styles = StyleSheet.create({
   },
 
   validBadge: {
+    backgroundColor: Colors.success,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
-    backgroundColor: Colors.success,
   },
 
   validBadgeText: {
     fontSize: 10,
     color: Colors.white,
     fontWeight: '600',
+  },
+
+  favoriteButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    backgroundColor: Colors.borderGrey,
+  },
+
+  favoriteButtonActive: {
+    backgroundColor: Colors.warning,
+  },
+
+  favoriteButtonText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+  },
+
+  favoriteButtonTextActive: {
+    color: Colors.white,
   },
 
   copyButton: {
@@ -576,6 +740,27 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 
+  // Favorites
+  emptyFavorites: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+
+  emptyFavoritesText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+
+  emptyFavoritesSubtext: {
+    fontSize: 14,
+    color: Colors.textLight,
+    textAlign: 'center',
+  },
+
   // Search Examples
   searchExamples: {
     marginTop: 24,
@@ -605,14 +790,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  // Loading
-  loadingSubtext: {
-    fontSize: 12,
-    color: Colors.textLight,
-    textAlign: 'center',
-    marginTop: 8,
-  },
-
   // Limit Notice
   limitNotice: {
     backgroundColor: Colors.backgroundGrey,
@@ -631,6 +808,7 @@ const styles = StyleSheet.create({
   // Detail Modal
   detailModal: {
     maxHeight: '80%',
+    width: '95%',
   },
 
   detailContent: {

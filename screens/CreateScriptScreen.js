@@ -1,7 +1,6 @@
 import React from 'react';
 import { 
   Alert, 
-  FlatList,
   ScrollView, 
   StyleSheet, 
   Text, 
@@ -22,7 +21,7 @@ import ViewShot from 'react-native-view-shot';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
-// Import ICD-10 data
+// Import ICD-10 data for validation
 import icd10DataJson from '../data/icd10-codes.json';
 
 const PRESETS_STORAGE_KEY = '@prescription_presets';
@@ -43,196 +42,6 @@ const TexturedBackground = ({ children }) => (
   </View>
 );
 
-// ICD-10 Code Selection Modal Component
-const ICD10SelectionModal = ({ 
-  visible, 
-  onClose, 
-  onSelect, 
-  selectedCodes = [],
-  multiSelect = true 
-}) => {
-  const [searchText, setSearchText] = React.useState('');
-  const [filteredCodes, setFilteredCodes] = React.useState([]);
-  const [localSelectedCodes, setLocalSelectedCodes] = React.useState(selectedCodes);
-
-  React.useEffect(() => {
-    if (visible) {
-      setLocalSelectedCodes(selectedCodes);
-    }
-  }, [visible, selectedCodes]);
-
-  React.useEffect(() => {
-    filterCodes();
-  }, [searchText]);
-
-  const filterCodes = () => {
-    if (!searchText.trim()) {
-      setFilteredCodes([]);
-      return;
-    }
-
-    const searchLower = searchText.toLowerCase().trim();
-    const filtered = icd10DataJson.codes.filter(item => {
-      return (
-        item.code.toLowerCase().includes(searchLower) ||
-        item.description.toLowerCase().includes(searchLower) ||
-        item.chapter.toLowerCase().includes(searchLower)
-      );
-    });
-
-    // Sort results by relevance
-    filtered.sort((a, b) => {
-      const aCode = a.code.toLowerCase();
-      const bCode = b.code.toLowerCase();
-      
-      if (aCode === searchLower) return -1;
-      if (bCode === searchLower) return 1;
-      if (aCode.startsWith(searchLower) && !bCode.startsWith(searchLower)) return -1;
-      if (bCode.startsWith(searchLower) && !aCode.startsWith(searchLower)) return 1;
-      
-      return aCode.localeCompare(bCode);
-    });
-
-    setFilteredCodes(filtered.slice(0, 50)); // Limit for performance
-  };
-
-  const toggleCodeSelection = (code) => {
-    if (multiSelect) {
-      const isSelected = localSelectedCodes.some(c => c.code === code.code);
-      if (isSelected) {
-        setLocalSelectedCodes(localSelectedCodes.filter(c => c.code !== code.code));
-      } else {
-        setLocalSelectedCodes([...localSelectedCodes, code]);
-      }
-    } else {
-      setLocalSelectedCodes([code]);
-    }
-  };
-
-  const handleConfirm = () => {
-    onSelect(localSelectedCodes);
-    onClose();
-  };
-
-  const renderCodeItem = ({ item }) => {
-    const isSelected = localSelectedCodes.some(c => c.code === item.code);
-    
-    return (
-      <TouchableOpacity
-        style={[styles.codeSelectItem, isSelected && styles.codeSelectItemSelected]}
-        onPress={() => toggleCodeSelection(item)}
-      >
-        <View style={styles.codeSelectHeader}>
-          <Text style={[styles.codeSelectCode, isSelected && styles.codeSelectCodeSelected]}>
-            {item.code}
-          </Text>
-          {item.validClinical && (
-            <View style={styles.validBadge}>
-              <Text style={styles.validBadgeText}>Clinical</Text>
-            </View>
-          )}
-        </View>
-        <Text style={[styles.codeSelectDescription, isSelected && styles.codeSelectDescriptionSelected]} numberOfLines={2}>
-          {item.description}
-        </Text>
-        <Text style={styles.codeSelectChapter} numberOfLines={1}>
-          {item.chapter}
-        </Text>
-      </TouchableOpacity>
-    );
-  };
-
-  return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={GlobalStyles.modalOverlay}>
-        <View style={[GlobalStyles.modalContent, styles.icd10Modal]}>
-          <Text style={GlobalStyles.modalTitle}>
-            Select ICD-10 {multiSelect ? 'Codes' : 'Code'}
-          </Text>
-          
-          <TextInput
-            style={GlobalStyles.searchInput}
-            value={searchText}
-            onChangeText={setSearchText}
-            placeholder="Search ICD-10 codes..."
-            placeholderTextColor={Colors.textLight}
-            autoCapitalize="none"
-          />
-
-          {localSelectedCodes.length > 0 && (
-            <View style={styles.selectedCodesContainer}>
-              <Text style={styles.selectedCodesTitle}>
-                Selected ({localSelectedCodes.length}):
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {localSelectedCodes.map((code, index) => (
-                  <View key={code.code} style={styles.selectedCodeChip}>
-                    <Text style={styles.selectedCodeText}>{code.code}</Text>
-                    <TouchableOpacity
-                      onPress={() => toggleCodeSelection(code)}
-                      style={styles.removeCodeButton}
-                    >
-                      <Text style={styles.removeCodeText}>×</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
-          <View style={styles.codeListContainer}>
-            {!searchText.trim() ? (
-              <View style={styles.searchPrompt}>
-                <Text style={styles.searchPromptIcon}>🔍</Text>
-                <Text style={styles.searchPromptText}>
-                  Start typing to search ICD-10 codes
-                  {'\n\n'}Try: diabetes, fever, hypertension
-                </Text>
-              </View>
-            ) : filteredCodes.length > 0 ? (
-              <FlatList
-                data={filteredCodes}
-                renderItem={renderCodeItem}
-                keyExtractor={(item) => item.code}
-                showsVerticalScrollIndicator={false}
-                maxToRenderPerBatch={10}
-                windowSize={10}
-              />
-            ) : (
-              <View style={styles.searchPrompt}>
-                <Text style={styles.searchPromptIcon}>❌</Text>
-                <Text style={styles.searchPromptText}>
-                  No codes found for "{searchText}"
-                </Text>
-              </View>
-            )}
-          </View>
-          
-          <View style={GlobalStyles.modalButtonContainer}>
-            <TouchableOpacity
-              style={[GlobalStyles.modalButton, GlobalStyles.lightButton]}
-              onPress={onClose}
-            >
-              <Text style={GlobalStyles.buttonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[GlobalStyles.modalButton, GlobalStyles.primaryButton]}
-              onPress={handleConfirm}
-            >
-              <Text style={GlobalStyles.buttonText}>Confirm</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-};
-
 function CreateScriptScreen({ navigation, route }) {
   // States
   const [date, setDate] = React.useState(new Date());
@@ -245,9 +54,9 @@ function CreateScriptScreen({ navigation, route }) {
   const [customPrescription, setCustomPrescription] = React.useState('');
   const [repeats, setRepeats] = React.useState(0);
   
-  // ICD-10 related states
+  // ICD-10 States - Simplified paste approach
+  const [icd10CodesText, setIcd10CodesText] = React.useState('');
   const [selectedIcd10Codes, setSelectedIcd10Codes] = React.useState([]);
-  const [icd10ModalVisible, setIcd10ModalVisible] = React.useState(false);
   
   // Dropdown states
   const [showPatientDropdown, setShowPatientDropdown] = React.useState(false);
@@ -279,7 +88,8 @@ function CreateScriptScreen({ navigation, route }) {
       // Load patients
       const storedPatients = await AsyncStorage.getItem(PATIENTS_STORAGE_KEY);
       if (storedPatients) {
-        setPatients(JSON.parse(storedPatients));
+        const patientsData = JSON.parse(storedPatients);
+        setPatients(Array.isArray(patientsData) ? patientsData : []);
       }
 
       // Load presets
@@ -291,11 +101,48 @@ function CreateScriptScreen({ navigation, route }) {
           ...preset,
           icd10Codes: preset.icd10Codes || []
         }));
-        setPresets(migratedPresets);
+        setPresets(Array.isArray(migratedPresets) ? migratedPresets : []);
       }
     } catch (error) {
       console.error('Error loading data:', error);
+      setPatients([]);
+      setPresets([]);
     }
+  };
+
+  // Parse ICD-10 codes from text input - Same as preset screen
+  const parseIcd10Codes = (text) => {
+    if (!text.trim()) {
+      setSelectedIcd10Codes([]);
+      return;
+    }
+
+    // Split by common separators and clean up
+    const codes = text
+      .split(/[,;\n\r\t\s]+/)
+      .map(code => code.trim().toUpperCase())
+      .filter(code => code.length > 0);
+
+    // Validate and find matching codes in the dataset
+    const validCodes = [];
+
+    codes.forEach(codeText => {
+      const foundCode = icd10DataJson.codes.find(item => 
+        item.code && item.code.toUpperCase() === codeText
+      );
+      
+      if (foundCode) {
+        // Avoid duplicates
+        if (!validCodes.some(existing => existing.code === foundCode.code)) {
+          validCodes.push({
+            code: foundCode.code,
+            description: foundCode.description || 'No description available'
+          });
+        }
+      }
+    });
+
+    setSelectedIcd10Codes(validCodes);
   };
 
   const formatDate = (date) => {
@@ -321,6 +168,16 @@ function CreateScriptScreen({ navigation, route }) {
   const handlePresetSelect = (preset) => {
     setSelectedPreset(preset);
     
+    // Copy ICD-10 codes from preset
+    if (preset.icd10Codes && preset.icd10Codes.length > 0) {
+      setSelectedIcd10Codes([...preset.icd10Codes]);
+      const codesText = preset.icd10Codes.map(code => code.code).join(', ');
+      setIcd10CodesText(codesText);
+    } else {
+      setSelectedIcd10Codes([]);
+      setIcd10CodesText('');
+    }
+    
     // Format prescription from preset
     let prescriptionText = '';
     preset.medications.forEach((medication, index) => {
@@ -328,19 +185,7 @@ function CreateScriptScreen({ navigation, route }) {
     });
     
     setPrescription(prescriptionText.trim());
-    
-    // Auto-populate ICD-10 codes from preset
-    if (preset.icd10Codes && preset.icd10Codes.length > 0) {
-      setSelectedIcd10Codes(preset.icd10Codes);
-    } else {
-      setSelectedIcd10Codes([]);
-    }
-    
     setShowPresetDropdown(false);
-  };
-
-  const handleIcd10Selection = (codes) => {
-    setSelectedIcd10Codes(codes);
   };
 
   const validateForm = () => {
@@ -459,6 +304,7 @@ function CreateScriptScreen({ navigation, route }) {
             setSelectedPreset(null);
             setCustomPrescription('');
             setSelectedIcd10Codes([]);
+            setIcd10CodesText('');
             setUseCustomPatient(false);
             setUseCustomPrescription(false);
             setRepeats(0);
@@ -579,57 +425,70 @@ function CreateScriptScreen({ navigation, route }) {
   };
 
   const renderPatientDropdown = () => {
-    if (!showPatientDropdown) return null;
+    if (!showPatientDropdown || patients.length === 0) return null;
     
     return (
       <View style={styles.dropdownContainer}>
-        {patients.map((patient) => (
-          <TouchableOpacity
-            key={patient.id}
-            style={styles.dropdownItem}
-            onPress={() => handlePatientSelect(patient)}
-          >
-            <Text style={styles.dropdownItemText}>
-              {patient.name} {patient.surname}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        <ScrollView style={styles.dropdownScroll} nestedScrollEnabled={true}>
+          {patients.map((patient) => (
+            <TouchableOpacity
+              key={patient.id}
+              style={styles.dropdownItem}
+              onPress={() => handlePatientSelect(patient)}
+            >
+              <Text style={styles.dropdownItemText}>
+                {patient.name} {patient.surname}
+              </Text>
+              {patient.age && (
+                <Text style={styles.dropdownItemSubtext}>Age: {patient.age}</Text>
+              )}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
     );
   };
 
   const renderPresetDropdown = () => {
-    if (!showPresetDropdown) return null;
+    if (!showPresetDropdown || presets.length === 0) return null;
     
     return (
       <View style={styles.dropdownContainer}>
-        {presets.map((preset) => (
-          <TouchableOpacity
-            key={preset.id}
-            style={styles.dropdownItem}
-            onPress={() => handlePresetSelect(preset)}
-          >
-            <View style={styles.dropdownPresetItem}>
-              <Text style={styles.dropdownItemText}>
-                {preset.diagnosis}
-              </Text>
-              {preset.icd10Codes && preset.icd10Codes.length > 0 && (
-                <View style={styles.presetIcd10Container}>
-                  {preset.icd10Codes.slice(0, 2).map((code, index) => (
-                    <View key={code.code} style={styles.presetIcd10Chip}>
-                      <Text style={styles.presetIcd10Text}>{code.code}</Text>
-                    </View>
-                  ))}
-                  {preset.icd10Codes.length > 2 && (
-                    <Text style={styles.presetIcd10More}>
-                      +{preset.icd10Codes.length - 2}
-                    </Text>
-                  )}
-                </View>
-              )}
-            </View>
-          </TouchableOpacity>
-        ))}
+        <ScrollView style={styles.dropdownScroll} nestedScrollEnabled={true}>
+          {presets.map((preset) => (
+            <TouchableOpacity
+              key={preset.id}
+              style={styles.dropdownItem}
+              onPress={() => handlePresetSelect(preset)}
+            >
+              <View style={styles.dropdownPresetItem}>
+                <Text style={styles.dropdownItemText}>
+                  {preset.diagnosis}
+                </Text>
+                <Text style={styles.dropdownItemSubtext}>
+                  {preset.medications.length} medication{preset.medications.length !== 1 ? 's' : ''}
+                  {preset.icd10Codes && preset.icd10Codes.length > 0 && 
+                    ` • ${preset.icd10Codes.length} ICD-10 code${preset.icd10Codes.length !== 1 ? 's' : ''}`
+                  }
+                </Text>
+                {preset.icd10Codes && preset.icd10Codes.length > 0 && (
+                  <View style={styles.presetIcd10Container}>
+                    {preset.icd10Codes.slice(0, 3).map((code, index) => (
+                      <View key={code.code} style={styles.presetIcd10Chip}>
+                        <Text style={styles.presetIcd10Text}>{code.code}</Text>
+                      </View>
+                    ))}
+                    {preset.icd10Codes.length > 3 && (
+                      <Text style={styles.presetIcd10More}>
+                        +{preset.icd10Codes.length - 3}
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
     );
   };
@@ -653,7 +512,7 @@ function CreateScriptScreen({ navigation, route }) {
           <View style={styles.contactInfoRow}>
             <View style={styles.leftContactInfo}>
               <Text style={styles.contactText}>Consulting rooms:</Text>
-              <Text style={styles.contactText}>5/87 Dunswart</Text>
+              <Text style={styles.contactText}>587 Dunswart</Text>
               <Text style={styles.contactText}>Apartments</Text>
               <Text style={styles.contactText}>Dunswart, Boksburg,</Text>
               <Text style={styles.contactText}>1459</Text>
@@ -704,24 +563,12 @@ function CreateScriptScreen({ navigation, route }) {
             <View style={styles.formFieldFull}>
               <Text style={styles.fieldLabel}>Address:</Text>
               <View style={styles.fieldLine}>
-                <Text style={styles.fieldValue}></Text>
+                <Text style={styles.fieldValue}>
+                  {selectedPatient?.address || ''}
+                </Text>
               </View>
             </View>
           </View>
-
-          {/* ICD-10 Codes Section in Template */}
-          {selectedIcd10Codes.length > 0 && (
-            <View style={styles.formRow}>
-              <View style={styles.formFieldFull}>
-                <Text style={styles.fieldLabel}>ICD-10 Code(s):</Text>
-                <View style={styles.fieldLine}>
-                  <Text style={styles.fieldValue}>
-                    {selectedIcd10Codes.map(code => code.code).join(', ')}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          )}
         </View>
 
         {/* Prescription Section - Main Content Area */}
@@ -733,7 +580,15 @@ function CreateScriptScreen({ navigation, route }) {
           <View style={styles.prescriptionContent}>
             <Text style={styles.prescriptionText}>{prescriptionText}</Text>
             
-            {/* ICD-10 Diagnosis Section */}
+            {/* Spacer */}
+            <View style={{flex: 1, minHeight: 30}} />
+            
+            {/* Repeats */}
+            {repeats > 0 && (
+              <Text style={styles.repeatsText}>Repeat x {repeats}</Text>
+            )}
+            
+            {/* Diagnosis and ICD-10 Codes at Bottom */}
             {selectedIcd10Codes.length > 0 && (
               <View style={styles.diagnosisSection}>
                 <Text style={styles.diagnosisHeader}>Diagnosis:</Text>
@@ -744,13 +599,6 @@ function CreateScriptScreen({ navigation, route }) {
                 ))}
               </View>
             )}
-            
-            {/* Spacer to push repeats to bottom */}
-            <View style={{flex: 1, minHeight: 50}} />
-            
-            {repeats > 0 && (
-              <Text style={styles.repeatsText}>Repeat x {repeats}</Text>
-            )}
           </View>
         </View>
 
@@ -759,7 +607,7 @@ function CreateScriptScreen({ navigation, route }) {
           <View style={styles.leftSignatureArea}>
             <View style={styles.signatureContainer}>
               <Image
-                source={require('../assets/signature.png')} // Place your signature image in assets folder
+                source={require('../assets/signature.png')}
                 style={styles.signatureImage}
                 resizeMode="contain"
               />
@@ -798,19 +646,6 @@ function CreateScriptScreen({ navigation, route }) {
           )}
         </View>
 
-        {/* Age Section */}
-        <View style={styles.section}>
-          <Text style={styles.fieldLabel}>Age of Minor (if applicable)</Text>
-          <TextInput
-            style={GlobalStyles.input}
-            value={age}
-            onChangeText={setAge}
-            placeholder="Enter age"
-            placeholderTextColor={Colors.textLight}
-            keyboardType="numeric"
-          />
-        </View>
-
         {/* Patient Selection */}
         <View style={styles.section}>
           <Text style={styles.fieldLabel}>Patient *</Text>
@@ -822,7 +657,7 @@ function CreateScriptScreen({ navigation, route }) {
               onPress={() => setUseCustomPatient(false)}
             >
               <Text style={[styles.toggleText, !useCustomPatient && styles.toggleTextActive]}>
-                Saved Patients
+                Select Patient
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -859,10 +694,24 @@ function CreateScriptScreen({ navigation, route }) {
           )}
         </View>
 
-        {/* ICD-10 Codes Section */}
+        {/* Age Section */}
+        <View style={styles.section}>
+          <Text style={styles.fieldLabel}>Age of Minor</Text>
+          <TextInput
+            style={GlobalStyles.input}
+            value={age}
+            onChangeText={setAge}
+            placeholder="Enter age (if minor)"
+            placeholderTextColor={Colors.textLight}
+            keyboardType="numeric"
+          />
+        </View>
+
+        {/* ICD-10 Codes Section - SIMPLIFIED PASTE APPROACH */}
         <View style={styles.section}>
           <Text style={styles.fieldLabel}>ICD-10 Diagnostic Codes</Text>
           
+          {/* Show auto-added codes from preset */}
           {!useCustomPrescription && selectedPreset && selectedPreset.icd10Codes && selectedPreset.icd10Codes.length > 0 && (
             <View style={styles.autoIcd10Container}>
               <Text style={styles.autoIcd10Label}>Auto-added from preset:</Text>
@@ -876,31 +725,40 @@ function CreateScriptScreen({ navigation, route }) {
             </View>
           )}
 
-          <TouchableOpacity
-            style={styles.icd10Button}
-            onPress={() => setIcd10ModalVisible(true)}
-          >
-            <Text style={styles.icd10ButtonText}>
-              {selectedIcd10Codes.length > 0 
-                ? `${selectedIcd10Codes.length} code${selectedIcd10Codes.length !== 1 ? 's' : ''} selected`
-                : 'Select ICD-10 codes'
-              }
-            </Text>
-            <Text style={styles.icd10ButtonIcon}>+</Text>
-          </TouchableOpacity>
+          <Text style={styles.icd10HelpText}>
+            Paste ICD-10 codes or they'll be copied when selecting a preset
+          </Text>
+          <TextInput
+            style={[GlobalStyles.input, styles.icd10TextInput]}
+            value={icd10CodesText}
+            onChangeText={(text) => {
+              setIcd10CodesText(text);
+              parseIcd10Codes(text);
+            }}
+            placeholder="Paste ICD-10 codes here (e.g., J00, I10, E11.9)"
+            placeholderTextColor={Colors.textLight}
+            multiline={true}
+            numberOfLines={2}
+          />
 
-          {/* Selected ICD-10 Codes Display */}
+          {/* Display valid ICD-10 codes */}
           {selectedIcd10Codes.length > 0 && (
             <View style={styles.selectedIcd10Container}>
+              <Text style={styles.selectedIcd10Title}>
+                Valid Codes ({selectedIcd10Codes.length}):
+              </Text>
               {selectedIcd10Codes.map((code) => (
                 <View key={code.code} style={styles.selectedIcd10Item}>
                   <Text style={styles.selectedIcd10Code}>{code.code}</Text>
-                  <Text style={styles.selectedIcd10Description} numberOfLines={1}>
+                  <Text style={styles.selectedIcd10Description} numberOfLines={2}>
                     {code.description}
                   </Text>
                   <TouchableOpacity
                     onPress={() => {
-                      setSelectedIcd10Codes(selectedIcd10Codes.filter(c => c.code !== code.code));
+                      const newCodes = selectedIcd10Codes.filter(c => c.code !== code.code);
+                      setSelectedIcd10Codes(newCodes);
+                      const newText = newCodes.map(c => c.code).join(', ');
+                      setIcd10CodesText(newText);
                     }}
                     style={styles.removeIcd10Button}
                   >
@@ -1019,15 +877,6 @@ function CreateScriptScreen({ navigation, route }) {
           </View>
         )}
 
-        {/* ICD-10 Selection Modal */}
-        <ICD10SelectionModal
-          visible={icd10ModalVisible}
-          onClose={() => setIcd10ModalVisible(false)}
-          onSelect={handleIcd10Selection}
-          selectedCodes={selectedIcd10Codes}
-          multiSelect={true}
-        />
-
         {/* Full Screen Image Modal */}
         <Modal
           animationType="slide"
@@ -1100,7 +949,7 @@ function CreateScriptScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  // Textured Background Styles
+  // Background Styles
   backgroundBase: {
     position: 'absolute',
     top: 0,
@@ -1237,6 +1086,10 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
 
+  dropdownScroll: {
+    maxHeight: 200,
+  },
+
   dropdownItem: {
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -1247,6 +1100,13 @@ const styles = StyleSheet.create({
   dropdownItemText: {
     fontSize: 14,
     color: Colors.textPrimary,
+    fontWeight: '500',
+  },
+
+  dropdownItemSubtext: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
 
   dropdownPresetItem: {
@@ -1281,7 +1141,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 
-  // ICD-10 Selection Styles
+  // ICD-10 Selection Styles - SIMPLIFIED PASTE APPROACH
   autoIcd10Container: {
     backgroundColor: Colors.backgroundGrey,
     padding: 8,
@@ -1315,55 +1175,59 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
 
-  icd10Button: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.borderGrey,
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: Colors.white,
-    marginBottom: 8,
-  },
-
-  icd10ButtonText: {
-    fontSize: 14,
+  // ICD-10 Text Input Styles
+  icd10HelpText: {
+    fontSize: 12,
     color: Colors.textSecondary,
+    marginBottom: 8,
+    fontStyle: 'italic',
   },
 
-  icd10ButtonIcon: {
-    fontSize: 18,
-    color: Colors.primaryBlue,
-    fontWeight: 'bold',
+  icd10TextInput: {
+    minHeight: 60,
+    textAlignVertical: 'top',
+    paddingTop: 12,
   },
 
   selectedIcd10Container: {
-    marginBottom: 8,
+    marginTop: 8,
+    padding: 10,
+    backgroundColor: Colors.backgroundGrey,
+    borderRadius: 8,
+  },
+
+  selectedIcd10Title: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 6,
   },
 
   selectedIcd10Item: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.backgroundGrey,
-    padding: 8,
+    alignItems: 'flex-start',
+    backgroundColor: Colors.white,
+    padding: 10,
     borderRadius: 8,
-    marginBottom: 4,
+    marginBottom: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primaryBlue,
   },
 
   selectedIcd10Code: {
     fontSize: 12,
     fontWeight: 'bold',
     color: Colors.primaryBlue,
-    minWidth: 50,
+    minWidth: 60,
+    marginTop: 2,
   },
 
   selectedIcd10Description: {
     flex: 1,
-    fontSize: 11,
+    fontSize: 12,
     color: Colors.textPrimary,
     marginLeft: 8,
+    marginTop: 2,
   },
 
   removeIcd10Button: {
@@ -1382,397 +1246,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
-  // ICD-10 Modal Styles
-  icd10Modal: {
-    maxHeight: '85%',
-    width: '95%',
-  },
-
-  selectedCodesContainer: {
-    marginBottom: 16,
-  },
-
-  selectedCodesTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    marginBottom: 8,
-  },
-
-  selectedCodeChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.primaryBlue,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginRight: 8,
-  },
-
-  selectedCodeText: {
-    color: Colors.white,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-
-  removeCodeButton: {
-    marginLeft: 4,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  removeCodeText: {
-    color: Colors.white,
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-
-  codeListContainer: {
-    flex: 1,
-    maxHeight: 300,
-  },
-
-  codeSelectItem: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderGrey,
-  },
-
-  codeSelectItemSelected: {
-    backgroundColor: Colors.accentBlue,
-  },
-
-  codeSelectHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-
-  codeSelectCode: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: Colors.primaryBlue,
-  },
-
-  codeSelectCodeSelected: {
-    color: Colors.primaryBlue,
-  },
-
-  validBadge: {
-    backgroundColor: Colors.success,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-
-  validBadgeText: {
-    fontSize: 10,
-    color: Colors.white,
-    fontWeight: '600',
-  },
-
-  codeSelectDescription: {
-    fontSize: 13,
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-
-  codeSelectDescriptionSelected: {
-    color: Colors.textPrimary,
-  },
-
-  codeSelectChapter: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    fontStyle: 'italic',
-  },
-
-  searchPrompt: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-
-  searchPromptIcon: {
-    fontSize: 32,
-    marginBottom: 16,
-  },
-
-  searchPromptText: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-
   // Input Styles
   prescriptionInput: {
     minHeight: 120,
     textAlignVertical: 'top',
   },
 
-  // Action Buttons
-  actionButtons: {
-    gap: 12,
-    marginTop: 20,
-    marginBottom: 40,
-  },
-
-  generateButton: {
-    paddingVertical: 16,
-  },
-
-  clearButton: {
-    paddingVertical: 16,
-  },
-
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  // Hidden Capture Container
-  hiddenCaptureContainer: {
-    position: 'absolute',
-    top: -10000,
-    left: -10000,
-    width: 800,
-    height: 1400,
-  },
-
-  // ViewShot Container
-  viewShotContainer: {
-    backgroundColor: Colors.white,
-    width: 800,
-    height: 1400,
-  },
-
-  // Prescription Form Styles
-  prescriptionFormContainer: {
-    backgroundColor: Colors.white,
-    width: '100%',
-    minWidth: 350,
-    minHeight: 1000,
-    padding: 0,
-    borderWidth: 3,
-    borderColor: '#2c5aa0',
-    borderRadius: 8,
-    flex: 1,
-  },
-
-  // Header Styles
-  prescriptionHeader: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#2c5aa0',
-    paddingBottom: 8,
-    backgroundColor: '#f8f9ff',
-  },
-
-  headerTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    marginBottom: 8,
-  },
-
-  doctorInfo: {
-    alignItems: 'center',
-  },
-
-  doctorName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    fontStyle: 'italic',
-    color: '#1a365d',
-    textAlign: 'center',
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-  },
-
-  practiceNumber: {
-    fontSize: 12,
-    color: '#4a5568',
-    textAlign: 'center',
-    marginTop: 2,
-    fontStyle: 'italic',
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-  },
-
-  contactInfoRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingBottom: 8,
-    backgroundColor: 'rgba(44, 90, 160, 0.05)',
-    minHeight: 60,
-  },
-
-  leftContactInfo: {
-    flex: 2,
-    paddingRight: 8,
-    minWidth: 120,
-  },
-
-  centerContactInfo: {
-    flex: 1,
-    alignItems: 'center',
-    minWidth: 80,
-  },
-
-  rightContactInfo: {
-    flex: 2,
-    paddingLeft: 8,
-    minWidth: 120,
-  },
-
-  contactText: {
-    fontSize: 9,
-    color: '#2d3748',
-    lineHeight: 11,
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-  },
-
-  // Form Fields Styles
-  formFieldsContainer: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderBottomWidth: 2,
-    borderBottomColor: '#2c5aa0',
-    backgroundColor: 'rgba(44, 90, 160, 0.02)',
-  },
-
-  formRow: {
-    flexDirection: 'row',
-    marginBottom: 8,
-    alignItems: 'flex-end',
-  },
-
-  formField: {
-    flex: 1,
-    marginRight: 20,
-    minWidth: 100,
-  },
-
-  formFieldFull: {
-    flex: 1,
-    minWidth: 200,
-  },
-
-  fieldLabel: {
-    fontSize: 11,
-    color: '#2c5aa0',
-    fontWeight: '600',
-    marginBottom: 2,
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-  },
-
-  fieldLine: {
-    borderBottomWidth: 1.5,
-    borderBottomColor: '#4299e1',
-    minHeight: 20,
-    paddingBottom: 2,
-    backgroundColor: 'rgba(66, 153, 225, 0.05)',
-  },
-
-  fieldValue: {
-    fontSize: 13,
-    color: '#1a365d',
-    fontWeight: '500',
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-  },
-
-  // Prescription Section Styles
-  prescriptionSection: {
-    flex: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    minHeight: 500,
-    maxHeight: 700,
-    backgroundColor: 'rgba(247, 250, 252, 0.8)',
-  },
-
-  rxHeader: {
-    marginBottom: 15,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-  },
-
-  rxLabel: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    fontStyle: 'italic',
-    color: '#2c5aa0',
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-  },
-
-  prescriptionContent: {
-    flex: 1,
-    paddingLeft: 12,
-    paddingRight: 12,
-    paddingTop: 15,
-    paddingBottom: 15,
-    backgroundColor: Colors.white,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    minHeight: 400,
-  },
-
-  prescriptionText: {
-    fontSize: 16,
-    color: '#2d3748',
-    lineHeight: 24,
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-    marginBottom: 20,
-    fontWeight: '500',
-  },
-
-  // Diagnosis section in prescription template
-  diagnosisSection: {
-    marginTop: 20,
-    paddingTop: 15,
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-  },
-
-  diagnosisHeader: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#2c5aa0',
-    marginBottom: 8,
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-  },
-
-  diagnosisText: {
-    fontSize: 12,
-    color: '#4a5568',
-    lineHeight: 16,
-    marginBottom: 4,
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-  },
-
-  repeatsText: {
-    fontSize: 16,
-    color: '#2c5aa0',
-    fontWeight: 'bold',
-    marginTop: 'auto',
-    paddingTop: 20,
-    textAlign: 'left',
-    fontStyle: 'italic',
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-  },
-
-  // Repeats Section Styles
+  // Repeats Section
   repeatsSection: {
     marginTop: 15,
     padding: 12,
@@ -1815,6 +1295,255 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
+  // Action Buttons
+  actionButtons: {
+    gap: 12,
+    marginTop: 20,
+    marginBottom: 40,
+  },
+
+  generateButton: {
+    paddingVertical: 16,
+  },
+
+  clearButton: {
+    paddingVertical: 16,
+  },
+
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Hidden Capture Container
+  hiddenCaptureContainer: {
+    position: 'absolute',
+    top: -10000,
+    left: -10000,
+    width: 800,
+    height: 1400,
+  },
+
+  // ViewShot Container
+  viewShotContainer: {
+    backgroundColor: Colors.white,
+    width: 800,
+    height: 1400,
+  },
+
+  // Prescription Form Styles - BIGGER TEXT FOR BETTER UX
+  prescriptionFormContainer: {
+    backgroundColor: Colors.white,
+    width: '100%',
+    minWidth: 350,
+    minHeight: 1000,
+    padding: 0,
+    borderWidth: 3,
+    borderColor: '#2c5aa0',
+    borderRadius: 8,
+    flex: 1,
+  },
+
+  // Header Styles
+  prescriptionHeader: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#2c5aa0',
+    paddingBottom: 8,
+    backgroundColor: '#f8f9ff',
+  },
+
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    marginBottom: 8,
+  },
+
+  doctorInfo: {
+    alignItems: 'center',
+  },
+
+  doctorName: {
+    fontSize: 32, // Increased from 28
+    fontWeight: 'bold',
+    fontStyle: 'italic',
+    color: '#1a365d',
+    textAlign: 'center',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+  },
+
+  practiceNumber: {
+    fontSize: 16, // Increased from 14
+    color: '#4a5568',
+    textAlign: 'center',
+    marginTop: 2,
+    fontStyle: 'italic',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+  },
+
+  contactInfoRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+    backgroundColor: 'rgba(44, 90, 160, 0.05)',
+    minHeight: 60,
+  },
+
+  leftContactInfo: {
+    flex: 2,
+    paddingRight: 8,
+    minWidth: 120,
+  },
+
+  centerContactInfo: {
+    flex: 1,
+    alignItems: 'center',
+    minWidth: 80,
+  },
+
+  rightContactInfo: {
+    flex: 2,
+    paddingLeft: 8,
+    minWidth: 120,
+  },
+
+  contactText: {
+    fontSize: 13, // Increased from 11
+    color: '#2d3748',
+    lineHeight: 15, // Increased from 13
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+  },
+
+  // Form Fields Styles
+  formFieldsContainer: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 2,
+    borderBottomColor: '#2c5aa0',
+    backgroundColor: 'rgba(44, 90, 160, 0.02)',
+  },
+
+  formRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+    alignItems: 'flex-end',
+  },
+
+  formField: {
+    flex: 1,
+    marginRight: 20,
+    minWidth: 100,
+  },
+
+  formFieldFull: {
+    flex: 1,
+    minWidth: 200,
+  },
+
+  fieldLine: {
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#4299e1',
+    minHeight: 26, // Increased from 22
+    paddingBottom: 2,
+    backgroundColor: 'rgba(66, 153, 225, 0.05)',
+  },
+
+  fieldValue: {
+    fontSize: 17, // Increased from 15
+    color: '#1a365d',
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+  },
+
+  // Prescription Section Styles - BIGGER TEXT
+  prescriptionSection: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    minHeight: 500,
+    maxHeight: 700,
+    backgroundColor: 'rgba(247, 250, 252, 0.8)',
+  },
+
+  rxHeader: {
+    marginBottom: 15,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+
+  rxLabel: {
+    fontSize: 28, // Increased from 24
+    fontWeight: 'bold',
+    fontStyle: 'italic',
+    color: '#2c5aa0',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+  },
+
+  prescriptionContent: {
+    flex: 1,
+    paddingLeft: 12,
+    paddingRight: 12,
+    paddingTop: 15,
+    paddingBottom: 15,
+    backgroundColor: Colors.white,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    minHeight: 400,
+  },
+
+  prescriptionText: {
+    fontSize: 24, // Increased from 20
+    color: '#2d3748',
+    lineHeight: 32, // Increased from 28
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    marginBottom: 20,
+    fontWeight: '500',
+  },
+
+  repeatsText: {
+    fontSize: 20, // Increased from 18
+    color: '#2c5aa0',
+    fontWeight: 'bold',
+    paddingTop: 15,
+    paddingBottom: 15,
+    textAlign: 'left',
+    fontStyle: 'italic',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+
+  // Diagnosis section in prescription template - moved to bottom
+  diagnosisSection: {
+    marginTop: 15,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+
+  diagnosisHeader: {
+    fontSize: 16, // Increased size
+    fontWeight: 'bold',
+    color: '#2c5aa0',
+    marginBottom: 8,
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+  },
+
+  diagnosisText: {
+    fontSize: 14, // Increased size
+    color: '#4a5568',
+    lineHeight: 18,
+    marginBottom: 4,
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+  },
+
   // Signature Section Styles
   signatureSection: {
     borderTopWidth: 2,
@@ -1847,12 +1576,12 @@ const styles = StyleSheet.create({
   },
 
   signatureImage: {
-    width: 140,
-    height: 55,
+    width: 160, // Increased from 140
+    height: 65, // Increased from 55
   },
 
   signatureName: {
-    fontSize: 18,
+    fontSize: 22, // Increased from 20
     fontWeight: 'bold',
     color: '#1a365d',
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
@@ -1861,7 +1590,7 @@ const styles = StyleSheet.create({
   },
 
   signatureTitle: {
-    fontSize: 14,
+    fontSize: 16, // Increased from 14
     color: '#4a5568',
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
     fontStyle: 'italic',
