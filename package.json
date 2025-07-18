@@ -1,5 +1,5 @@
 {
-  "name": "prescriptionappnew",
+  "name": "easy-scripts",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -18,7 +18,7 @@
     "expo-file-system": "^18.1.11",
     "expo-sharing": "~13.1.5",
     "expo-status-bar": "~2.2.3",
-    "react": "^19.0.0",
+    "react": "19.0.0",
     "react-native": "0.79.5",
     "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "~2.24.0",

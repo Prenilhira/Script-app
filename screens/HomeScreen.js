@@ -71,7 +71,7 @@ function HomeScreen({ navigation }) {
           {/* Header Section */}
           <View style={styles.headerSection}>
             <Text style={styles.appTitle}>Dr. P. Hira</Text>
-            <Text style={styles.appSubtitle}>Prescription Management System</Text>
+            <Text style={styles.appSubtitle}>Easy Scripts</Text>
             <View style={styles.headerDivider} />
           </View>
 
