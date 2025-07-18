@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Easy Scripts",
-    "slug": "easy-scripts",
+    "slug": "PrescriptionAppNew",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,14 +14,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.prenil.easyscripts"
+      "bundleIdentifier": "com.prenil.PrescriptionAppNew"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.prenil.easyscripts"
+      "package": "com.prenil.PrescriptionAppNew"
     },
     "web": {
       "favicon": "./assets/favicon.png"

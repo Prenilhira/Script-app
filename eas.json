@@ -9,14 +9,12 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal",
-      "node": "18.x.x"
+      "distribution": "internal"
     },
     "production": {
       "autoIncrement": true,
-      "node": "18.x.x",
-      "cache": {
-        "disabled": false
+      "android": {
+        "buildType": "apk"
       }
     }
   },

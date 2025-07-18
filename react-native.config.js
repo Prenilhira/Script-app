@@ -3,7 +3,7 @@ module.exports = {
     'react-native-vector-icons': {
       platforms: {
         ios: {
-          xcodeprojPath: 'ios/easyscripts.xcodeproj',
+          xcodeprojPath: 'ios/PrescriptionAppNew.xcodeproj',
           libraryFolder: 'Libraries',
         },
       },
