@@ -676,8 +676,10 @@ function CreateScriptScreen({ navigation, route }) {
               value={customPatientName}
               onChangeText={setCustomPatientName}
               placeholder="Enter patient name"
-              placeholderTextColor={Colors.textLight}
-              color={Colors.textPrimary}
+              placeholderTextColor="#999999"
+              color="#000000"
+              selectionColor="#1e3a8a"
+              underlineColorAndroid="transparent"
             />
           ) : (
             <View>
@@ -703,8 +705,10 @@ function CreateScriptScreen({ navigation, route }) {
             value={age}
             onChangeText={setAge}
             placeholder="Enter age (if minor)"
-            placeholderTextColor={Colors.textLight}
-            color={Colors.textPrimary}
+            placeholderTextColor="#999999"
+            color="#000000"
+            selectionColor="#1e3a8a"
+            underlineColorAndroid="transparent"
             keyboardType="numeric"
           />
         </View>
@@ -738,8 +742,10 @@ function CreateScriptScreen({ navigation, route }) {
               parseIcd10Codes(text);
             }}
             placeholder="Paste ICD-10 codes here (e.g., J00, I10, E11.9)"
-            placeholderTextColor={Colors.textLight}
-            color={Colors.textPrimary}
+            placeholderTextColor="#999999"
+            color="#000000"
+            selectionColor="#1e3a8a"
+            underlineColorAndroid="transparent"
             multiline={true}
             numberOfLines={2}
           />
@@ -817,11 +823,13 @@ function CreateScriptScreen({ navigation, route }) {
             value={useCustomPrescription ? customPrescription : prescription}
             onChangeText={useCustomPrescription ? setCustomPrescription : setPrescription}
             placeholder="Enter prescription details..."
+            placeholderTextColor="#999999"
+            color="#000000"
+            selectionColor="#1e3a8a"
+            underlineColorAndroid="transparent"
             multiline
             numberOfLines={8}
             textAlignVertical="top"
-            placeholderTextColor={Colors.textLight}
-            color={Colors.textPrimary}
           />
 
           {/* Repeats Section */}

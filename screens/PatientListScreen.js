@@ -349,8 +349,10 @@ function PatientListScreen({ navigation }) {
           value={searchText}
           onChangeText={setSearchText}
           placeholder="Search by name, surname, or cell number"
-          placeholderTextColor={Colors.textLight}
-          color={Colors.textPrimary}
+          placeholderTextColor="#999999"
+          color="#000000"
+          selectionColor="#1e3a8a"
+          underlineColorAndroid="transparent"
         />
 
         <Text style={GlobalStyles.countText}>
@@ -396,8 +398,10 @@ function PatientListScreen({ navigation }) {
                   value={newPatientName}
                   onChangeText={setNewPatientName}
                   placeholder="Enter first name"
-                  placeholderTextColor={Colors.textLight}
-                  color={Colors.textPrimary}
+                  placeholderTextColor="#999999"
+                  color="#000000"
+                  selectionColor="#1e3a8a"
+                  underlineColorAndroid="transparent"
                 />
                 
                 <Text style={GlobalStyles.inputLabel}>Surname *</Text>
@@ -406,8 +410,10 @@ function PatientListScreen({ navigation }) {
                   value={newPatientSurname}
                   onChangeText={setNewPatientSurname}
                   placeholder="Enter surname"
-                  placeholderTextColor={Colors.textLight}
-                  color={Colors.textPrimary}
+                  placeholderTextColor="#999999"
+                  color="#000000"
+                  selectionColor="#1e3a8a"
+                  underlineColorAndroid="transparent"
                 />
                 
                 <Text style={GlobalStyles.inputLabel}>Cell Number</Text>
@@ -416,8 +422,10 @@ function PatientListScreen({ navigation }) {
                   value={newPatientCellNumber}
                   onChangeText={setNewPatientCellNumber}
                   placeholder="Enter cell number"
-                  placeholderTextColor={Colors.textLight}
-                  color={Colors.textPrimary}
+                  placeholderTextColor="#999999"
+                  color="#000000"
+                  selectionColor="#1e3a8a"
+                  underlineColorAndroid="transparent"
                   keyboardType="phone-pad"
                 />
               </View>
@@ -461,8 +469,10 @@ function PatientListScreen({ navigation }) {
                   value={editPatientName}
                   onChangeText={setEditPatientName}
                   placeholder="Enter first name"
-                  placeholderTextColor={Colors.textLight}
-                  color={Colors.textPrimary}
+                  placeholderTextColor="#999999"
+                  color="#000000"
+                  selectionColor="#1e3a8a"
+                  underlineColorAndroid="transparent"
                 />
                 
                 <Text style={GlobalStyles.inputLabel}>Surname *</Text>
@@ -471,8 +481,10 @@ function PatientListScreen({ navigation }) {
                   value={editPatientSurname}
                   onChangeText={setEditPatientSurname}
                   placeholder="Enter surname"
-                  placeholderTextColor={Colors.textLight}
-                  color={Colors.textPrimary}
+                  placeholderTextColor="#999999"
+                  color="#000000"
+                  selectionColor="#1e3a8a"
+                  underlineColorAndroid="transparent"
                 />
                 
                 <Text style={GlobalStyles.inputLabel}>Cell Number</Text>
@@ -481,8 +493,10 @@ function PatientListScreen({ navigation }) {
                   value={editPatientCellNumber}
                   onChangeText={setEditPatientCellNumber}
                   placeholder="Enter cell number"
-                  placeholderTextColor={Colors.textLight}
-                  color={Colors.textPrimary}
+                  placeholderTextColor="#999999"
+                  color="#000000"
+                  selectionColor="#1e3a8a"
+                  underlineColorAndroid="transparent"
                   keyboardType="phone-pad"
                 />
               </View>

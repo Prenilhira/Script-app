@@ -308,8 +308,10 @@ function ICD10CodesScreen({ navigation }) {
                 value={searchText}
                 onChangeText={setSearchText}
                 placeholder="Search by ICD-10 code or description..."
-                placeholderTextColor={Colors.textLight}
-                color={Colors.textPrimary}
+                placeholderTextColor="#999999"
+                color="#000000"
+                selectionColor="#1e3a8a"
+                underlineColorAndroid="transparent"
                 autoCapitalize="none"
               />
               

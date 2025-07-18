@@ -531,8 +531,10 @@ function PresetPrescriptionScreen({ navigation }) {
           value={searchText}
           onChangeText={setSearchText}
           placeholder="Search by diagnosis, medication, or ICD-10 code"
-          placeholderTextColor={Colors.textLight}
-          color={Colors.textPrimary}
+          placeholderTextColor="#999999"
+          color="#000000"
+          selectionColor="#1e3a8a"
+          underlineColorAndroid="transparent"
         />
 
         <Text style={GlobalStyles.countText}>
@@ -578,8 +580,10 @@ function PresetPrescriptionScreen({ navigation }) {
                   value={diagnosis}
                   onChangeText={setDiagnosis}
                   placeholder="Enter diagnosis or condition"
-                  placeholderTextColor={Colors.textLight}
-                  color={Colors.textPrimary}
+                  placeholderTextColor="#999999"
+                  color="#000000"
+                  selectionColor="#1e3a8a"
+                  underlineColorAndroid="transparent"
                 />
 
                 {/* ICD-10 Codes Section */}
@@ -595,8 +599,10 @@ function PresetPrescriptionScreen({ navigation }) {
                     parseIcd10Codes(text);
                   }}
                   placeholder="Paste ICD-10 codes here (e.g., J00, I10, E11.9)"
-                  placeholderTextColor={Colors.textLight}
-                  color={Colors.textPrimary}
+                  placeholderTextColor="#999999"
+                  color="#000000"
+                  selectionColor="#1e3a8a"
+                  underlineColorAndroid="transparent"
                   multiline={true}
                   numberOfLines={3}
                 />
@@ -637,8 +643,10 @@ function PresetPrescriptionScreen({ navigation }) {
                     value={medicationName}
                     onChangeText={setMedicationName}
                     placeholder="Medication name"
-                    placeholderTextColor={Colors.textLight}
-                    color={Colors.textPrimary}
+                    placeholderTextColor="#999999"
+                    color="#000000"
+                    selectionColor="#1e3a8a"
+                    underlineColorAndroid="transparent"
                   />
                   
                   <TextInput
@@ -646,8 +654,10 @@ function PresetPrescriptionScreen({ navigation }) {
                     value={dose}
                     onChangeText={setDose}
                     placeholder="Dose (e.g., 500mg)"
-                    placeholderTextColor={Colors.textLight}
-                    color={Colors.textPrimary}
+                    placeholderTextColor="#999999"
+                    color="#000000"
+                    selectionColor="#1e3a8a"
+                    underlineColorAndroid="transparent"
                   />
                   
                   <TextInput
@@ -655,8 +665,10 @@ function PresetPrescriptionScreen({ navigation }) {
                     value={direction}
                     onChangeText={setDirection}
                     placeholder="Direction (e.g., Take twice daily)"
-                    placeholderTextColor={Colors.textLight}
-                    color={Colors.textPrimary}
+                    placeholderTextColor="#999999"
+                    color="#000000"
+                    selectionColor="#1e3a8a"
+                    underlineColorAndroid="transparent"
                   />
                   
                   <TextInput
@@ -664,8 +676,10 @@ function PresetPrescriptionScreen({ navigation }) {
                     value={quantity}
                     onChangeText={setQuantity}
                     placeholder="Quantity (e.g., 30 tablets)"
-                    placeholderTextColor={Colors.textLight}
-                    color={Colors.textPrimary}
+                    placeholderTextColor="#999999"
+                    color="#000000"
+                    selectionColor="#1e3a8a"
+                    underlineColorAndroid="transparent"
                   />
                   
                   <TouchableOpacity
@@ -753,8 +767,10 @@ function PresetPrescriptionScreen({ navigation }) {
                   value={diagnosis}
                   onChangeText={setDiagnosis}
                   placeholder="Enter diagnosis or condition"
-                  placeholderTextColor={Colors.textLight}
-                  color={Colors.textPrimary}
+                  placeholderTextColor="#999999"
+                  color="#000000"
+                  selectionColor="#1e3a8a"
+                  underlineColorAndroid="transparent"
                 />
 
                 {/* ICD-10 Codes Section */}
@@ -770,8 +786,10 @@ function PresetPrescriptionScreen({ navigation }) {
                     parseIcd10Codes(text);
                   }}
                   placeholder="Paste ICD-10 codes here (e.g., J00, I10, E11.9)"
-                  placeholderTextColor={Colors.textLight}
-                  color={Colors.textPrimary}
+                  placeholderTextColor="#999999"
+                  color="#000000"
+                  selectionColor="#1e3a8a"
+                  underlineColorAndroid="transparent"
                   multiline={true}
                   numberOfLines={3}
                 />
@@ -812,8 +830,10 @@ function PresetPrescriptionScreen({ navigation }) {
                     value={medicationName}
                     onChangeText={setMedicationName}
                     placeholder="Medication name"
-                    placeholderTextColor={Colors.textLight}
-                    color={Colors.textPrimary}
+                    placeholderTextColor="#999999"
+                    color="#000000"
+                    selectionColor="#1e3a8a"
+                    underlineColorAndroid="transparent"
                   />
                   
                   <TextInput
@@ -821,8 +841,10 @@ function PresetPrescriptionScreen({ navigation }) {
                     value={dose}
                     onChangeText={setDose}
                     placeholder="Dose (e.g., 500mg)"
-                    placeholderTextColor={Colors.textLight}
-                    color={Colors.textPrimary}
+                    placeholderTextColor="#999999"
+                    color="#000000"
+                    selectionColor="#1e3a8a"
+                    underlineColorAndroid="transparent"
                   />
                   
                   <TextInput
@@ -830,8 +852,10 @@ function PresetPrescriptionScreen({ navigation }) {
                     value={direction}
                     onChangeText={setDirection}
                     placeholder="Direction (e.g., Take twice daily)"
-                    placeholderTextColor={Colors.textLight}
-                    color={Colors.textPrimary}
+                    placeholderTextColor="#999999"
+                    color="#000000"
+                    selectionColor="#1e3a8a"
+                    underlineColorAndroid="transparent"
                   />
                   
                   <TextInput
@@ -839,8 +863,10 @@ function PresetPrescriptionScreen({ navigation }) {
                     value={quantity}
                     onChangeText={setQuantity}
                     placeholder="Quantity (e.g., 30 tablets)"
-                    placeholderTextColor={Colors.textLight}
-                    color={Colors.textPrimary}
+                    placeholderTextColor="#999999"
+                    color="#000000"
+                    selectionColor="#1e3a8a"
+                    underlineColorAndroid="transparent"
                   />
                   
                   <TouchableOpacity

@@ -200,16 +200,19 @@ export const GlobalStyles = StyleSheet.create({
     color: Colors.textLight,
   },
   
-  // Input Styles - FIXED WITH TEXT COLOR
+  // Input Styles - CRITICAL FIX FOR TEXT VISIBILITY
   input: {
     borderWidth: 1,
     borderColor: Colors.borderGrey,
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    fontSize: 14,
+    fontSize: 16,                    // Increased from 14 for better visibility
     backgroundColor: Colors.white,
-    color: Colors.textPrimary, // CRITICAL FIX: Added explicit text color
+    color: '#000000',               // CRITICAL: Pure black text for maximum visibility
+    textAlign: 'left',              // Ensure proper text alignment
+    textAlignVertical: 'center',    // Center text vertically (Android)
+    includeFontPadding: false,      // Remove extra padding on Android
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -227,9 +230,12 @@ export const GlobalStyles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    fontSize: 14,
+    fontSize: 16,                   // Increased from 14 for better visibility
     backgroundColor: Colors.white,
-    color: Colors.textPrimary, // CRITICAL FIX: Added explicit text color
+    color: '#000000',              // CRITICAL: Pure black text for maximum visibility
+    textAlign: 'left',             // Ensure proper text alignment
+    textAlignVertical: 'center',   // Center text vertically (Android)
+    includeFontPadding: false,     // Remove extra padding on Android
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
