@@ -677,6 +677,7 @@ function CreateScriptScreen({ navigation, route }) {
               onChangeText={setCustomPatientName}
               placeholder="Enter patient name"
               placeholderTextColor={Colors.textLight}
+              color={Colors.textPrimary}
             />
           ) : (
             <View>
@@ -703,6 +704,7 @@ function CreateScriptScreen({ navigation, route }) {
             onChangeText={setAge}
             placeholder="Enter age (if minor)"
             placeholderTextColor={Colors.textLight}
+            color={Colors.textPrimary}
             keyboardType="numeric"
           />
         </View>
@@ -737,6 +739,7 @@ function CreateScriptScreen({ navigation, route }) {
             }}
             placeholder="Paste ICD-10 codes here (e.g., J00, I10, E11.9)"
             placeholderTextColor={Colors.textLight}
+            color={Colors.textPrimary}
             multiline={true}
             numberOfLines={2}
           />
@@ -818,6 +821,7 @@ function CreateScriptScreen({ navigation, route }) {
             numberOfLines={8}
             textAlignVertical="top"
             placeholderTextColor={Colors.textLight}
+            color={Colors.textPrimary}
           />
 
           {/* Repeats Section */}

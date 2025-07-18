@@ -350,6 +350,7 @@ function PatientListScreen({ navigation }) {
           onChangeText={setSearchText}
           placeholder="Search by name, surname, or cell number"
           placeholderTextColor={Colors.textLight}
+          color={Colors.textPrimary}
         />
 
         <Text style={GlobalStyles.countText}>
@@ -396,6 +397,7 @@ function PatientListScreen({ navigation }) {
                   onChangeText={setNewPatientName}
                   placeholder="Enter first name"
                   placeholderTextColor={Colors.textLight}
+                  color={Colors.textPrimary}
                 />
                 
                 <Text style={GlobalStyles.inputLabel}>Surname *</Text>
@@ -405,6 +407,7 @@ function PatientListScreen({ navigation }) {
                   onChangeText={setNewPatientSurname}
                   placeholder="Enter surname"
                   placeholderTextColor={Colors.textLight}
+                  color={Colors.textPrimary}
                 />
                 
                 <Text style={GlobalStyles.inputLabel}>Cell Number</Text>
@@ -414,6 +417,7 @@ function PatientListScreen({ navigation }) {
                   onChangeText={setNewPatientCellNumber}
                   placeholder="Enter cell number"
                   placeholderTextColor={Colors.textLight}
+                  color={Colors.textPrimary}
                   keyboardType="phone-pad"
                 />
               </View>
@@ -458,6 +462,7 @@ function PatientListScreen({ navigation }) {
                   onChangeText={setEditPatientName}
                   placeholder="Enter first name"
                   placeholderTextColor={Colors.textLight}
+                  color={Colors.textPrimary}
                 />
                 
                 <Text style={GlobalStyles.inputLabel}>Surname *</Text>
@@ -467,6 +472,7 @@ function PatientListScreen({ navigation }) {
                   onChangeText={setEditPatientSurname}
                   placeholder="Enter surname"
                   placeholderTextColor={Colors.textLight}
+                  color={Colors.textPrimary}
                 />
                 
                 <Text style={GlobalStyles.inputLabel}>Cell Number</Text>
@@ -476,6 +482,7 @@ function PatientListScreen({ navigation }) {
                   onChangeText={setEditPatientCellNumber}
                   placeholder="Enter cell number"
                   placeholderTextColor={Colors.textLight}
+                  color={Colors.textPrimary}
                   keyboardType="phone-pad"
                 />
               </View>

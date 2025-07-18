@@ -200,7 +200,7 @@ export const GlobalStyles = StyleSheet.create({
     color: Colors.textLight,
   },
   
-  // Input Styles
+  // Input Styles - FIXED WITH TEXT COLOR
   input: {
     borderWidth: 1,
     borderColor: Colors.borderGrey,
@@ -209,6 +209,7 @@ export const GlobalStyles = StyleSheet.create({
     paddingHorizontal: 12,
     fontSize: 14,
     backgroundColor: Colors.white,
+    color: Colors.textPrimary, // CRITICAL FIX: Added explicit text color
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -228,6 +229,7 @@ export const GlobalStyles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 14,
     backgroundColor: Colors.white,
+    color: Colors.textPrimary, // CRITICAL FIX: Added explicit text color
     shadowColor: '#000',
     shadowOffset: {
       width: 0,

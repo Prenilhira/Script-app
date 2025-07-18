@@ -309,6 +309,7 @@ function ICD10CodesScreen({ navigation }) {
                 onChangeText={setSearchText}
                 placeholder="Search by ICD-10 code or description..."
                 placeholderTextColor={Colors.textLight}
+                color={Colors.textPrimary}
                 autoCapitalize="none"
               />
               
